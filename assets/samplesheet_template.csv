@@ -1,0 +1,3 @@
+sample,subject_id,fastq_1,fastq_2,species,pcr_target_locus
+SRR11909734,DONOR1,/path/to/SRR11909734_R1.fastq.gz,/path/to/SRR11909734_R2.fastq.gz,human,IGH
+SRR11909736,DONOR2,/path/to/SRR11909736_R1.fastq.gz,/path/to/SRR11909736_R2.fastq.gz,human,IGH

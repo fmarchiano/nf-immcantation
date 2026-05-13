@@ -1,0 +1,51 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/nf-immcantation/master/assets/schema_input.json",
+    "title": "nf-immcantation samplesheet schema",
+    "description": "Schema for validating the nf-immcantation samplesheet",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "sample": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "meta": ["id"],
+                "description": "Sample identifier (no spaces)"
+            },
+            "subject_id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "meta": ["subject_id"],
+                "description": "Subject/donor identifier for clonal grouping"
+            },
+            "fastq_1": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.f(ast)?q(\\.gz)?$",
+                "description": "R1 FASTQ file (gzipped or plain)"
+            },
+            "fastq_2": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.f(ast)?q(\\.gz)?$",
+                "description": "R2 FASTQ file (gzipped or plain)"
+            },
+            "species": {
+                "type": "string",
+                "enum": ["human", "mouse"],
+                "meta": ["species"],
+                "description": "Species (human or mouse)"
+            },
+            "pcr_target_locus": {
+                "type": "string",
+                "enum": ["IGH", "IGL", "IGK"],
+                "meta": ["locus"],
+                "description": "Target immunoglobulin locus"
+            }
+        },
+        "required": ["sample", "subject_id", "fastq_1", "fastq_2", "species", "pcr_target_locus"]
+    }
+}

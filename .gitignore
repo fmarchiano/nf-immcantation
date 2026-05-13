@@ -1,0 +1,26 @@
+# Nextflow runtime
+.nextflow/
+.nextflow.log*
+work/
+
+# Pipeline outputs / results
+test_results/
+
+# Claude Code
+.claude/
+
+# Dev notes (internal)
+SESSION_NOTES.md
+
+# Docs (internal)
+docs/
+data/
+
+# Raw sequencing data
+*.fastq
+*.fastq.gz
+*.bam
+*.cram
+
+# Logs
+*.log
