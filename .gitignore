@@ -9,6 +9,9 @@ test_results/
 # Claude Code
 .claude/
 
+# Git worktrees
+.worktrees/
+
 # Dev notes (internal)
 SESSION_NOTES.md
 
