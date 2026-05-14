@@ -5,6 +5,7 @@ work/
 
 # Pipeline outputs / results
 test_results/
+test_results_*/
 
 # Claude Code
 .claude/
@@ -18,6 +19,9 @@ SESSION_NOTES.md
 # Docs (internal)
 docs/
 data/
+
+# External reference files (extracted from container, not versioned)
+refs/
 
 # Raw sequencing data
 *.fastq

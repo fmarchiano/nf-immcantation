@@ -1,7 +1,7 @@
 process CHANGEO_ASSIGNGENES {
     tag "$meta.id"
     label 'process_high'
-    label 'immcantation'
+    label 'changeo'
 
     input:
     tuple val(meta), path(fasta)

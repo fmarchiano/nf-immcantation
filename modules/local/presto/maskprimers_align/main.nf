@@ -1,7 +1,7 @@
 process PRESTO_MASKPRIMERS_ALIGN {
     tag "$meta.id"
     label 'process_medium'
-    label 'immcantation'
+    label 'presto'
 
     input:
     tuple val(meta), path(reads)   // [meta, R2.fastq] — C-read only

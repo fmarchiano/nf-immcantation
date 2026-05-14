@@ -1,7 +1,7 @@
 process PRESTO_SPLITSEQ {
     tag "$meta.id"
     label 'process_single'
-    label 'immcantation'
+    label 'presto'
 
     input:
     tuple val(meta), path(reads)

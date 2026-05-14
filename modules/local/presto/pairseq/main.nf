@@ -1,7 +1,7 @@
 process PRESTO_PAIRSEQ {
     tag "$meta.id"
     label 'process_medium'
-    label 'immcantation'
+    label 'presto'
 
     input:
     tuple val(meta), path(r1), path(r2)   // R1 (V-read), R2_primers-pass (C-read)

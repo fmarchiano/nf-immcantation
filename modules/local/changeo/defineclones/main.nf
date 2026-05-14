@@ -1,7 +1,7 @@
 process CHANGEO_DEFINECLONES {
     tag "$meta.id"
     label 'process_medium'
-    label 'immcantation'
+    label 'changeo'
 
     input:
     tuple val(meta), path(tabs)   // one or more TSV files (grouped by subject)

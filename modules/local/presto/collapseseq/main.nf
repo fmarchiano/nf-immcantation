@@ -1,7 +1,7 @@
 process PRESTO_COLLAPSESEQ {
     tag "$meta.id"
     label 'process_medium'
-    label 'immcantation'
+    label 'presto'
 
     input:
     tuple val(meta), path(reads)

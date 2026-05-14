@@ -1,7 +1,7 @@
 process CHANGEO_MAKEDB {
     tag "$meta.id"
     label 'process_medium'
-    label 'immcantation'
+    label 'changeo'
 
     input:
     tuple val(meta), path(fasta)

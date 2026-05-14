@@ -1,7 +1,7 @@
 process ASSEMBLEPAIRS {
     tag "$meta.id"
     label 'process_high'
-    label 'immcantation'
+    label 'presto'
 
     input:
     tuple val(meta), path(r1_pair), path(r2_pair)   // [meta, R1_pair-pass, R2_pair-pass]
@@ -33,7 +33,7 @@ process ASSEMBLEPAIRS {
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         presto: \$(python3 -c "import presto; print(presto.__version__)")
-        igblast: \$(igblastn -version 2>&1 | head -1 | awk '{print \$NF}')
+        blastn: \$(blastn -version 2>&1 | head -1 | awk '{print \$2}')
     END_VERSIONS
     """
 
@@ -43,6 +43,6 @@ process ASSEMBLEPAIRS {
     touch ${meta.id}-assemblepairs.log
     echo '"${task.process}":' > versions.yml
     echo '    presto: 0.7.2' >> versions.yml
-    echo '    igblast: 1.22.0' >> versions.yml
+    echo '    blastn: 2.13.0+' >> versions.yml
     """
 }
