@@ -20,8 +20,6 @@ SESSION_NOTES.md
 docs/
 data/
 
-# External reference files (extracted from container, not versioned)
-refs/
 
 # Raw sequencing data
 *.fastq
