@@ -2,7 +2,7 @@ include { FASTP                  } from '../../modules/nf-core/fastp/main'
 include { GUNZIP                 } from '../../modules/local/presto/gunzip/main'
 include { PRESTO_MASKPRIMERS_ALIGN } from '../../modules/local/presto/maskprimers_align/main'
 include { PRESTO_PAIRSEQ         } from '../../modules/local/presto/pairseq/main'
-include { ASSEMBLEPAIRS          } from '../../modules/local/assemblepairs/main'
+include { PEAR                   } from '../../modules/local/pear/main'
 include { PRESTO_COLLAPSESEQ     } from '../../modules/local/presto/collapseseq/main'
 include { PRESTO_SPLITSEQ        } from '../../modules/local/presto/splitseq/main'
 
@@ -35,13 +35,12 @@ workflow PRESTO {
 
     PRESTO_PAIRSEQ(ch_paired)
 
-    // 6. AssemblePairs sequential
-    //    -1 = C-read (R2_pair-pass), -2 = V-read (R1_pair-pass)
-    //    blastn reference: $IGDATA/fasta/imgt_{species}_ig_v.fasta inside container
-    ASSEMBLEPAIRS(PRESTO_PAIRSEQ.out.reads)
+    // 6. PEAR — merge paired-end reads by overlap
+    //    -f = C-read (R2_pair-pass, original Illumina R1), -r = V-read (R1_pair-pass, original Illumina R2)
+    PEAR(PRESTO_PAIRSEQ.out.reads)
 
     // 7. CollapseSeq — remove PCR duplicates
-    PRESTO_COLLAPSESEQ(ASSEMBLEPAIRS.out.reads)
+    PRESTO_COLLAPSESEQ(PEAR.out.reads)
 
     // 8. SplitSeq — filter by DUPCOUNT >= splitseq_min_count; outputs FASTA
     PRESTO_SPLITSEQ(PRESTO_COLLAPSESEQ.out.reads)
