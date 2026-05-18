@@ -24,13 +24,13 @@ workflow PRESTO {
     ch_r1 = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[0] ] }
     ch_r2 = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[1] ] }
 
-    // 4. MaskPrimers align on R2 only — finds CH1 primer by alignment,
-    //    cuts it along with the variable 2/4/6bp stagger offset upstream
-    //    R1 has no primer (V-gene primers enzymatically removed before sequencing)
-    PRESTO_MASKPRIMERS_ALIGN(ch_r2, ch_cprimers.collect())
+    // 4. MaskPrimers align on R1 only — R1 is the C-read in this dataset
+    //    (reads from CH1 end toward VH); finds CH1 primer by alignment and cuts
+    //    the variable upstream region (CDR3/JH) along with the primer itself
+    PRESTO_MASKPRIMERS_ALIGN(ch_r1, ch_cprimers.collect())
 
-    // 5. PairSeq — synchronize R1 + R2, propagate C_CALL annotation
-    ch_paired = ch_r1
+    // 5. PairSeq — synchronize R2 (V-read) + masked R1 (C-read), propagate C_CALL annotation
+    ch_paired = ch_r2
         .join(PRESTO_MASKPRIMERS_ALIGN.out.reads, by: [0])
 
     PRESTO_PAIRSEQ(ch_paired)
