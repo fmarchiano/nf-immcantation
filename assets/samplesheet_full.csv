@@ -1,0 +1,3 @@
+sample,subject_id,fastq_1,fastq_2,species,pcr_target_locus
+SRR8283601,S326650,/data/reference/fastq/SRR8283601_R1.fastq.gz,/data/reference/fastq/SRR8283601_R2.fastq.gz,human,IGH
+SRR8283602,S326650,/data/reference/fastq/SRR8283602_R1.fastq.gz,/data/reference/fastq/SRR8283602_R2.fastq.gz,human,IGH
