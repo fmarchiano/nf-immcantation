@@ -1,4 +1,4 @@
-include { CHANGEO_DEFINECLONES } from '../../modules/local/changeo/defineclones/main'
+include { SCOPER_HIERARCHICALCLONES } from '../../modules/local/scoper/hierarchicalclones/main'
 
 workflow CLONAL_ANALYSIS {
     take:
@@ -9,7 +9,7 @@ workflow CLONAL_ANALYSIS {
     // so clones are defined across all samples from the same donor
     ch_airr
         .map { meta, tab ->
-            def group_key = meta."${params.cloneby}"
+            def group_key = meta[params.cloneby]
             def group_meta = [
                 id         : group_key,
                 subject_id : meta.subject_id,
@@ -21,9 +21,8 @@ workflow CLONAL_ANALYSIS {
         .groupTuple(by: [0])
         .set { ch_grouped }
 
-    // DefineClones with fixed threshold — no Shazam auto-detection
-    CHANGEO_DEFINECLONES(ch_grouped)
+    SCOPER_HIERARCHICALCLONES(ch_grouped)
 
     emit:
-    cloned_tab = CHANGEO_DEFINECLONES.out.tab
+    cloned_tab = SCOPER_HIERARCHICALCLONES.out.tab
 }
