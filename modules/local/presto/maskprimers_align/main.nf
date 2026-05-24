@@ -4,8 +4,9 @@ process PRESTO_MASKPRIMERS_ALIGN {
     label 'presto'
 
     input:
-    tuple val(meta), path(reads)   // [meta, R2.fastq] — C-read only
-    path  cprimers                 // C-region primers FASTA
+    tuple val(meta), path(reads)   // [meta, single-end FASTQ to mask]
+    path  primers                  // primers FASTA (C-region for R1, V-region for R2)
+    val   read_tag                 // suffix for output naming, e.g. 'C' or 'V'
 
     output:
     tuple val(meta), path("*primers-pass.fastq"), emit: reads
@@ -19,14 +20,14 @@ process PRESTO_MASKPRIMERS_ALIGN {
     """
     MaskPrimers.py align \\
         -s ${reads} \\
-        -p ${cprimers} \\
+        -p ${primers} \\
         ${args} \\
         --nproc ${task.cpus} \\
-        --outname ${meta.id}-R2 \\
-        --log ${meta.id}-maskprimers.log
+        --outname ${meta.id}-${read_tag} \\
+        --log ${meta.id}-${read_tag}-maskprimers.log
 
     ParseLog.py \\
-        -l ${meta.id}-maskprimers.log \\
+        -l ${meta.id}-${read_tag}-maskprimers.log \\
         ${args2}
 
     cat <<-END_VERSIONS > versions.yml
@@ -37,8 +38,8 @@ process PRESTO_MASKPRIMERS_ALIGN {
 
     stub:
     """
-    touch ${meta.id}-R2_primers-pass.fastq
-    touch ${meta.id}-maskprimers.log
+    touch ${meta.id}-${read_tag}_primers-pass.fastq
+    touch ${meta.id}-${read_tag}-maskprimers.log
     echo '"${task.process}":' > versions.yml
     echo '    presto: 0.7.2' >> versions.yml
     """
