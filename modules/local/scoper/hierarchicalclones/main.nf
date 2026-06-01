@@ -12,7 +12,7 @@ process SCOPER_HIERARCHICALCLONES {
 
     script:
     def method    = task.ext.method    ?: 'nt'
-    def linkage   = task.ext.linkage   ?: 'complete'
+    def linkage   = task.ext.linkage   ?: 'single'
     def threshold = task.ext.threshold ?: params.clonal_threshold
     def tab_list  = tabs instanceof List ? tabs.join(' ') : tabs
     """
