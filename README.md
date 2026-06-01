@@ -129,7 +129,7 @@ nextflow run /path/to/nf-immcantation \
 | `--primer_maxlen_c` | 100 | Search window on R1 (covers 12 nt UMI + 2/4/6 nt offset) |
 | `--primer_maxlen_v` | 35 | Search window on R2 (covers 2/4/6 nt offset) |
 | `--splitseq_min_count` | 2 | Minimum duplicate count to retain a sequence |
-| `--cloning_method` | `exact` | Clonal grouping: `exact` (DefineClones --model aa --dist 0, Briney parity) or `hierarchical` (SCOPer) |
+| `--cloning_method` | `hierarchical` | Clonal grouping: `hierarchical` (SCOPer hierarchicalClones, default on this branch) or `exact` (DefineClones --model aa --dist 0, Briney parity) |
 | `--defineclones_model` | `aa` | DefineClones distance model when `cloning_method=exact` |
 | `--defineclones_dist` | 0.0 | DefineClones distance threshold (0 = exact CDR3 aa match) |
 | `--clonal_threshold` | 0.16 | SCOPer junction distance cutoff (only when `cloning_method=hierarchical`) |
@@ -167,8 +167,8 @@ results/
 - **No UMI consensus step**: Briney's library carries a 12 nt UMI + 2/4/6 nt offset on R1. The paper itself states most UMI bins are singletons (depth ≈ cells, ~3×10⁸ each), so `BuildConsensus` adds little benefit. Replaced by exact-match collapse + DUPCOUNT≥2.
 - **Productive + allele-strip step (ParseDb)**: Briney's clonotype definition is `(V_gene, J_gene, CDR3_aa)` on productive sequences. After MakeDb we filter `productive=T` and write gene-level columns `v_call_gene` / `j_call_gene` for DefineClones to consume.
 - **Clonal grouping** (`--cloning_method`):
-  - `exact` (default): `DefineClones.py --model aa --dist 0 --vf v_call_gene --jf j_call_gene` — exact (V_gene, J_gene, CDR3_aa) match, matching Briney 2019.
-  - `hierarchical`: SCOPer hierarchicalClones at `--clonal_threshold` (the previous default behaviour).
+  - `hierarchical` (default): SCOPer hierarchicalClones at `--clonal_threshold` (0.16), `--scoper_linkage single` (diagnosis sensitivity, Gupta et al. 2017).
+  - `exact`: `DefineClones.py --model aa --dist 0 --vf v_call_gene --jf j_call_gene` — exact (V_gene, J_gene, CDR3_aa) match, matching Briney 2019. Used on the `briney` benchmark branch.
 - **Grouping for clone definition**: samples from the same `params.cloneby` value (default `subject_id`) are clonotyped together, so clones span biological + technical replicates of one donor.
 - **All references bundled**: IgBLAST DB and IMGT germlines come from `immcantation/suite:4.5.0`; no external download required.
 
