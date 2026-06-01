@@ -5,6 +5,7 @@ process CHANGEO_ASSIGNGENES {
 
     input:
     tuple val(meta), path(fasta)
+    path igblast
 
     output:
     tuple val(meta), path("*.fmt7"),           emit: blast
@@ -16,7 +17,7 @@ process CHANGEO_ASSIGNGENES {
     """
     AssignGenes.py igblast \\
         -s ${fasta} \\
-        -b /usr/local/share/igblast \\
+        -b ${igblast} \\
         --organism ${meta.species} \\
         ${args} \\
         --nproc ${task.cpus} \\

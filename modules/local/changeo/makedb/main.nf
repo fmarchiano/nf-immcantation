@@ -6,6 +6,7 @@ process CHANGEO_MAKEDB {
     input:
     tuple val(meta), path(fasta)
     tuple val(meta2), path(blast)
+    path germlines
 
     output:
     tuple val(meta), path("*db-pass.tsv"), emit: tab
@@ -15,7 +16,7 @@ process CHANGEO_MAKEDB {
 
     script:
     def args = task.ext.args ?: ''
-    def vdj_dir = "/usr/local/share/germlines/imgt/${meta.species}/vdj"
+    def vdj_dir = "${germlines}/imgt/${meta.species}/vdj"
     """
     MakeDb.py igblast \\
         -i ${blast} \\

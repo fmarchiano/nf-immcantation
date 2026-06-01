@@ -81,10 +81,15 @@ SRR11909734,DONOR1,/path/to/SRR11909734_R1.fastq.gz,/path/to/SRR11909734_R2.fast
 
 Supported values: `species` = `human`; `pcr_target_locus` = `IGH`.
 
-### 3. Prepare a C-region primer FASTA
+### 3. Prepare primer FASTAs
 
-Provide a FASTA file of C-region primer sequences visible in R2.  
-The Briney 2019 CH1 primer (`assets/cprimers_briney2019.fasta`) is included as an example.
+Two primer FASTAs are required:
+
+- `--cprimers` — isotype-specific C-region primers, masked on the C-read (reads[0] in Briney 2019 SRA dump).
+  Header IDs are propagated as the `C_CALL` (isotype) annotation.
+  `assets/cprimers_briney2019.fasta` ships IgM + IgG (degenerate `S`/`R` codes cover IgG1–4).
+- `--vprimers` — V-region primers, masked on the V-read (reads[1] in Briney 2019 SRA dump).
+  `assets/vprimers_briney2019.fasta` ships VH1–VH6.
 
 ### 4. Run
 
@@ -93,6 +98,7 @@ nextflow run /path/to/nf-immcantation \
   -profile docker,local \
   --input /path/to/samplesheet.csv \
   --cprimers /path/to/cprimers.fasta \
+  --vprimers /path/to/vprimers.fasta \
   --outdir /path/to/results
 ```
 
@@ -113,16 +119,20 @@ nextflow run /path/to/nf-immcantation \
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--input` | — | Samplesheet CSV (required) |
-| `--cprimers` | — | C-region primers FASTA (required) |
+| `--cprimers` | — | C-region (isotype) primers FASTA — masked on R1 / C-read (required) |
+| `--vprimers` | — | V-region primers FASTA — masked on R2 / V-read (required) |
 | `--outdir` | — | Output directory (required) |
 | `--fastp_q` | 20 | Minimum base quality (phred) |
 | `--fastp_window_size` | 5 | Sliding-window size for 3′ trimming |
-| `--primer_maxerror` | 0.3 | MaskPrimers max error rate |
-| `--ap_maxerror` | 0.3 | AssemblePairs max error rate |
-| `--ap_alpha` | 1e-5 | AssemblePairs p-value threshold |
-| `--ap_minident` | 0.5 | AssemblePairs min identity |
+| `--primer_maxerror_c` | 0.3 | MaskPrimers max error rate (C-read) |
+| `--primer_maxerror_v` | 0.2 | MaskPrimers max error rate (V-read) |
+| `--primer_maxlen_c` | 100 | Search window on R1 (covers 12 nt UMI + 2/4/6 nt offset) |
+| `--primer_maxlen_v` | 35 | Search window on R2 (covers 2/4/6 nt offset) |
 | `--splitseq_min_count` | 2 | Minimum duplicate count to retain a sequence |
-| `--clonal_threshold` | 0.16 | Fixed Hamming distance threshold for clonal grouping |
+| `--cloning_method` | `exact` | Clonal grouping: `exact` (DefineClones --model aa --dist 0, Briney parity) or `hierarchical` (SCOPer) |
+| `--defineclones_model` | `aa` | DefineClones distance model when `cloning_method=exact` |
+| `--defineclones_dist` | 0.0 | DefineClones distance threshold (0 = exact CDR3 aa match) |
+| `--clonal_threshold` | 0.16 | SCOPer junction distance cutoff (only when `cloning_method=hierarchical`) |
 
 ---
 
@@ -130,28 +140,36 @@ nextflow run /path/to/nf-immcantation \
 
 ```
 results/
-├── fastp/{sample}/            # QC reports + trimmed reads
+├── fastp/{sample}/                       # QC reports + trimmed reads
 ├── presto/
-│   ├── 02-maskprimers/{sample}/
+│   ├── 02a-maskprimers-C/{sample}/       # MaskPrimers on R1 (C-read, isotype primers)
+│   ├── 02b-maskprimers-V/{sample}/       # MaskPrimers on R2 (V-read, VH primers)
 │   ├── 03-pairseq/{sample}/
-│   ├── 04-assemblepairs/{sample}/
+│   ├── 04-pear/{sample}/                 # PEAR-assembled reads
 │   ├── 05-collapseseq/{sample}/
 │   └── 06-splitseq/{sample}/
 ├── vdj_annotation/
-│   ├── 01-assigngenes/{sample}/   # IgBLAST output (.fmt7)
-│   └── 02-makedb/{sample}/        # AIRR-format TSV (db-pass.tsv)
-├── clonal_analysis/{subject}/     # clone-pass.tsv with clone_id column
-└── pipeline_info/                 # Nextflow execution report, timeline, trace
+│   ├── 01-assigngenes/{sample}/          # IgBLAST output (.fmt7)
+│   ├── 02-makedb/{sample}/               # AIRR-format TSV (db-pass.tsv)
+│   └── 03-parsedb/{sample}/              # productive-only + v_call_gene/j_call_gene added
+├── clonal_analysis/{subject}/            # clone-pass.tsv with clone_id column
+└── pipeline_info/                        # Nextflow execution report, timeline, trace
 ```
 
 ---
 
 ## Design notes
 
-- **No UMI consensus step**: Briney 2019 uses variable-length staggers (2/4/6 bp), not fixed-length UMIs. Most bins contain 1 read, so `BuildConsensus` is skipped.
-- **No MaskPrimers on R1**: V-gene primers are enzymatically removed before sequencing; R1 starts directly in VH FR1.
-- **Fixed clonal threshold**: `--clonal_threshold 0.16` (Hamming distance, length-normalized) — no Shazam auto-detection.
-- **DefineClones groups by `subject_id`**: samples from the same subject are clonotyped together.
+- **Read orientation (Briney 2019 SRA)**: R1 = C-read, R2 = V-read — inverted from the common R1=V convention. Confirmed by primer hits on raw FASTQs.
+- **Two MaskPrimers steps**:
+  - R1 (C-read): isotype primers (IgM/IgG/...), 12 nt UMI + 2/4/6 nt offset preamble, `--maxlen 100`. Isotype name written to `C_CALL` header for downstream isotype assignment.
+  - R2 (V-read): VH1–VH6 primers, 2/4/6 nt offset, `--maxlen 35`. Briney removed these with cutadapt post-assembly; we remove pre-assembly for the same effect.
+- **No UMI consensus step**: Briney's library carries a 12 nt UMI + 2/4/6 nt offset on R1. The paper itself states most UMI bins are singletons (depth ≈ cells, ~3×10⁸ each), so `BuildConsensus` adds little benefit. Replaced by exact-match collapse + DUPCOUNT≥2.
+- **Productive + allele-strip step (ParseDb)**: Briney's clonotype definition is `(V_gene, J_gene, CDR3_aa)` on productive sequences. After MakeDb we filter `productive=T` and write gene-level columns `v_call_gene` / `j_call_gene` for DefineClones to consume.
+- **Clonal grouping** (`--cloning_method`):
+  - `exact` (default): `DefineClones.py --model aa --dist 0 --vf v_call_gene --jf j_call_gene` — exact (V_gene, J_gene, CDR3_aa) match, matching Briney 2019.
+  - `hierarchical`: SCOPer hierarchicalClones at `--clonal_threshold` (the previous default behaviour).
+- **Grouping for clone definition**: samples from the same `params.cloneby` value (default `subject_id`) are clonotyped together, so clones span biological + technical replicates of one donor.
 - **All references bundled**: IgBLAST DB and IMGT germlines come from `immcantation/suite:4.5.0`; no external download required.
 
 ---

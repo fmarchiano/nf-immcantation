@@ -17,7 +17,7 @@ subset_test/
 # Dev notes (internal)
 SESSION_NOTES.md
 
-# Docs and assests(internal)
+# Docs and asssets (internal)
 docs/
 assets/
 
@@ -30,5 +30,6 @@ assets/
 
 # Logs
 *.log
-null/
 nf-logs/
+null/
+nohup.out
