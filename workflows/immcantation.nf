@@ -11,8 +11,10 @@ workflow IMMCANTATION {
     if (!params.cprimers) error "Parameter --cprimers is required (C-region/isotype primers FASTA)"
     if (!params.vprimers) error "Parameter --vprimers is required (V-region primers FASTA)"
 
-    ch_cprimers = Channel.fromPath(params.cprimers, checkIfExists: true)
-    ch_vprimers = Channel.fromPath(params.vprimers, checkIfExists: true)
+    ch_cprimers  = Channel.fromPath(params.cprimers, checkIfExists: true)
+    ch_vprimers  = Channel.fromPath(params.vprimers, checkIfExists: true)
+    ch_igblast   = Channel.fromPath("${params.ref_dir}/igblast",   type: 'dir', checkIfExists: true).first()
+    ch_germlines = Channel.fromPath("${params.ref_dir}/germlines", type: 'dir', checkIfExists: true).first()
 
     // Parse samplesheet
     INPUT_CHECK()
@@ -22,8 +24,8 @@ workflow IMMCANTATION {
     PRESTO(ch_reads, ch_cprimers, ch_vprimers)
 
     // V(D)J gene assignment — uses $IGDATA + germlines inside container
-    VDJ_ASSIGNMENT(PRESTO.out.fasta)
+    VDJ_ASSIGNMENT(PRESTO.out.fasta, ch_igblast, ch_germlines)
 
-    // Clonal analysis — exact-match (Briney parity) or hierarchical (SCOPer)
-    CLONAL_ANALYSIS(VDJ_ASSIGNMENT.out.airr_tab)
+    // Clonal analysis disabled for this run — endpoint is ParseDb per sample.
+    // CLONAL_ANALYSIS(VDJ_ASSIGNMENT.out.airr_tab)
 }

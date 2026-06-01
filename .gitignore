@@ -6,6 +6,7 @@ work/
 # Pipeline outputs / results
 test_results/
 test_results_*/
+subset_test/
 
 # Claude Code
 .claude/
@@ -16,8 +17,9 @@ test_results_*/
 # Dev notes (internal)
 SESSION_NOTES.md
 
-# Docs (internal)
+# Docs and asssets (internal)
 docs/
+assets/
 
 
 # Raw sequencing data
@@ -28,4 +30,6 @@ docs/
 
 # Logs
 *.log
+nf-logs/
 null/
+nohup.out

@@ -1,6 +1,7 @@
 process GUNZIP {
     tag "$meta.id"
     label 'process_single'
+    container 'ubuntu:22.04'
 
     input:
     tuple val(meta), path(reads)   // [meta, [R1.fastq.gz, R2.fastq.gz]]
