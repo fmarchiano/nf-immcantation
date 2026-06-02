@@ -129,6 +129,10 @@ nextflow run /path/to/nf-immcantation \
 | `--primer_maxlen_c` | 100 | Search window on R1 (covers 12 nt UMI + 2/4/6 nt offset) |
 | `--primer_maxlen_v` | 35 | Search window on R2 (covers 2/4/6 nt offset) |
 | `--splitseq_min_count` | 2 | Minimum duplicate count to retain a sequence |
+| `--umi` | `false` | Opt-in UMI mode: extract the UMI as BARCODE and build a per-UMI consensus before assembly |
+| `--buildconsensus_maxerror` | 0.1 | Max error within a UMI consensus group (UMI mode) |
+| `--buildconsensus_mincount` | 1 | Min reads per UMI to build a consensus (UMI mode) |
+| `--buildconsensus_maxgap` | 0.5 | Max gap fraction at a consensus position (UMI mode) |
 | `--cloning_method` | `hierarchical` | Clonal grouping: `hierarchical` (SCOPer hierarchicalClones, default on this branch) or `exact` (DefineClones --model aa --dist 0, Briney parity) |
 | `--defineclones_model` | `aa` | DefineClones distance model when `cloning_method=exact` |
 | `--defineclones_dist` | 0.0 | DefineClones distance threshold (0 = exact CDR3 aa match) |
@@ -164,7 +168,7 @@ results/
 - **Two MaskPrimers steps**:
   - R1 (C-read): isotype primers (IgM/IgG/...), 12 nt UMI + 2/4/6 nt offset preamble, `--maxlen 100`. Isotype name written to `C_CALL` header for downstream isotype assignment.
   - R2 (V-read): VH1–VH6 primers, 2/4/6 nt offset, `--maxlen 35`. Briney removed these with cutadapt post-assembly; we remove pre-assembly for the same effect.
-- **No UMI consensus step**: Briney's library carries a 12 nt UMI + 2/4/6 nt offset on R1. The paper itself states most UMI bins are singletons (depth ≈ cells, ~3×10⁸ each), so `BuildConsensus` adds little benefit. Replaced by exact-match collapse + DUPCOUNT≥2.
+- **UMI consensus is opt-in** (`--umi`, default off): Briney's library carries a 12 nt UMI + 2/4/6 nt offset on R1, but the paper states most UMI bins are singletons (depth ≈ cells), so by default `BuildConsensus` is skipped in favour of exact-match collapse + DUPCOUNT≥2. With `--umi true` the C-read MaskPrimers step extracts the UMI into `BARCODE`, it is paired onto the V-read, each mate is consensus-built per UMI (`BuildConsensus`), the two consensus files are re-synced, and assembly proceeds as usual. Worth enabling only when UMIs have real bin depth and quantitative/error-sensitive accuracy matters. See `PLAN_umi_mode.md`.
 - **Productive + allele-strip step (ParseDb)**: Briney's clonotype definition is `(V_gene, J_gene, CDR3_aa)` on productive sequences. After MakeDb we filter `productive=T` and write gene-level columns `v_call_gene` / `j_call_gene` for DefineClones to consume.
 - **Clonal grouping** (`--cloning_method`):
   - `hierarchical` (default): SCOPer hierarchicalClones at `--clonal_threshold` (0.16), `--scoper_linkage single` (diagnosis sensitivity, Gupta et al. 2017).
