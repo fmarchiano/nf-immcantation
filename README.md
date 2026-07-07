@@ -65,6 +65,43 @@ fasterq-dump --split-files SRR11909736
 
 ---
 
+## Benchmark results
+
+This branch's exact `(V_gene, J_gene, CDR3_aa)` clonotyping was benchmarked
+against Briney's own published annotations (the *gold standard*) for the three
+subjects with released data — **316188, 326650, 326651**. Each gold record is a
+UMI-consensus sequence annotated by AbStar and projected to the same exact
+`(V_gene, J_gene, CDR3_aa)` clonotype this branch produces, so the comparison is
+definition-for-definition.
+
+**Method** (asymmetric, `MIN_SUP=2`): recall is measured against *confident*
+gold (UMI support ≥ 2, the analog of the pipeline's `DUPCOUNT ≥ 2` filter), and
+precision against *full* gold (≥ 1), since a call matching **any** real gold
+molecule is a true positive. A match requires identical CDR3_aa **and**
+overlapping V- and J-call lists (tolerating IgBLAST-vs-AbStar call ordering).
+Biological replicates are pooled within a subject; subjects are weighted equally
+in the macro-average.
+
+| Subject | Gold ≥2 units | Pipeline units | Recall | Precision | F1 |
+|---------|--------------:|---------------:|-------:|----------:|-----:|
+| 316188 | 56,025 | 102,022 | 0.954 | 0.778 | 0.857 |
+| 326650 | 633,674 | 1,259,356 | 0.949 | 0.890 | 0.919 |
+| 326651 | 831,688 | 2,233,249 | 0.916 | 0.983 | 0.948 |
+| **Macro-average** | — | — | **0.939** | **0.884** | **0.911** |
+
+**Recall ≈ 0.94, precision ≈ 0.88, F1 ≈ 0.91.** The pipeline recovers ~94% of
+confidently-supported gold clonotypes, and ~88% of its own calls are confirmed
+against gold. Precision rises monotonically with gold depth (0.78 → 0.89 → 0.98):
+a shallower gold set leaves more pipeline calls *unconfirmable* rather than
+wrong, so 0.88 is a conservative floor — against the near-saturated deepest
+subject (326651) precision reaches ~0.98.
+
+Gold-standard construction, full methodology, and per-replicate detail are
+documented in the project wiki (`Benchmark/Briney_Gold_Standard.md`,
+`Benchmark/Comparison_Methodology.md`, `Benchmark/Annotation_vs_Gold_Results.md`).
+
+---
+
 ## Requirements
 
 | Tool | Version |
