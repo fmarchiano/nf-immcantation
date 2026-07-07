@@ -48,20 +48,13 @@ The pipeline was developed and validated on publicly available bulk BCR-IGH data
 > *Nature* 566, 393–397 (2019).  
 > DOI: [10.1038/s41586-019-0879-y](https://doi.org/10.1038/s41586-019-0879-y)
 
-SRA accessions used for testing (25,000-read toy subsets):
-
-| Sample | SRA accession | Subject |
-|--------|--------------|---------|
-| SRR11909734 | [SRR11909734](https://www.ncbi.nlm.nih.gov/sra/SRR11909734) | DONOR1 |
-| SRR11909736 | [SRR11909736](https://www.ncbi.nlm.nih.gov/sra/SRR11909736) | DONOR2 |
-
-Raw FASTQs can be downloaded with the SRA Toolkit:
-
-```bash
-prefetch SRR11909734 SRR11909736
-fasterq-dump --split-files SRR11909734
-fasterq-dump --split-files SRR11909736
-```
+The benchmark uses the three subjects with published gold-standard annotations —
+**316188, 326650, 326651** — each sequenced as **18 libraries (6 biological
+replicates × 3 technical replicates)**. Read depth spans a ~49× range across
+subjects (≈ 0.66 M to ≈ 32 M sequences), so the benchmark probes behaviour from
+shallow to near-saturating coverage. Raw FASTQs are available from the study's
+SRA BioProject; the exact runs per subject and download steps are listed in the
+project wiki (`Benchmark/Briney_Gold_Standard.md`).
 
 ---
 
@@ -127,7 +120,7 @@ Edit `assets/samplesheet_template.csv` to point to your gzipped paired-end FASTQ
 
 ```csv
 sample,subject_id,fastq_1,fastq_2,species,pcr_target_locus
-SRR11909734,DONOR1,/path/to/SRR11909734_R1.fastq.gz,/path/to/SRR11909734_R2.fastq.gz,human,IGH
+SRR8283834,316188,/path/to/SRR8283834_R1.fastq.gz,/path/to/SRR8283834_R2.fastq.gz,human,IGH
 ```
 
 Supported values: `species` = `human`; `pcr_target_locus` = `IGH`.
@@ -153,7 +146,7 @@ nextflow run /path/to/nf-immcantation \
   --outdir /path/to/results
 ```
 
-#### Test run (toy Briney data, local resources)
+#### Quick smoke test (bundled data, local resources)
 
 ```bash
 nextflow run /path/to/nf-immcantation \
