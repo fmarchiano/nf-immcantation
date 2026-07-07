@@ -1,8 +1,20 @@
-# nf-immcantation
+# nf-immcantation — Briney 2019 benchmark (`briney` branch)
 
-A lightweight [Nextflow](https://www.nextflow.io/) DSL2 pipeline for bulk BCR-IGH AIRR-seq analysis using the [Immcantation](https://immcantation.readthedocs.io/) framework.
+> **This is the benchmark branch.** It reproduces the bulk BCR-IGH processing of
+> Briney et al. 2019 as faithfully as possible, so the pipeline's output can be
+> compared against the published analysis. For the general-purpose, more
+> computationally efficient pipeline, see the **[`main`](../../tree/main)** branch.
 
-Designed for paired-end Illumina BCR heavy-chain (IGH) libraries where C-region primers are visible in R2 and V-gene primers are enzymatically removed before sequencing (R1 starts directly in VH FR1).
+A [Nextflow](https://www.nextflow.io/) DSL2 pipeline for bulk BCR-IGH AIRR-seq
+analysis using the [Immcantation](https://immcantation.readthedocs.io/)
+framework, configured to mirror the Briney 2019 library design and clonotype
+definition.
+
+Targets the Briney 2019 SRA library layout: paired-end Illumina BCR heavy-chain
+(IGH) reads where **R1 is the C-read** (12 nt UMI + 2/4/6 nt offset + isotype
+C-region primer) and **R2 is the V-read** (VH1–VH6 primer) — inverted from the
+common R1 = V convention. Both primer sets are present and are masked before
+assembly.
 
 ---
 
@@ -11,14 +23,16 @@ Designed for paired-end Illumina BCR heavy-chain (IGH) libraries where C-region 
 ```
 fastp (QC + trim)
   └─ GUNZIP (decompress for pRESTO)
-       └─ MaskPrimers align (R2 only — mask C-region primer)
-            └─ PairSeq (synchronize R1/R2 pairs)
-                 └─ AssemblePairs sequential + blastn (overlap assembly)
+       ├─ MaskPrimers align  (R1 / C-read — isotype primer → C_CALL)
+       └─ MaskPrimers align  (R2 / V-read — VH1–VH6 primer)
+            └─ PairSeq (synchronize R1/R2 pairs; copy C_CALL onto the V-read)
+                 └─ PEAR (overlap assembly of the mate pair)
                       └─ CollapseSeq (deduplicate)
-                           └─ SplitSeq (filter by duplicate count)
+                           └─ SplitSeq (filter by duplicate count, DUPCOUNT ≥ 2)
                                 └─ AssignGenes / IgBLAST (V(D)J annotation)
                                      └─ MakeDb (AIRR-format TSV)
-                                          └─ DefineClones (clonal grouping)
+                                          └─ ParseDb (productive filter + gene-level V/J calls)
+                                               └─ DefineClones (exact V_gene, J_gene, CDR3_aa)
 ```
 
 All IgBLAST databases and IMGT germlines are bundled in the `immcantation/suite:4.5.0` Docker image — no external reference downloads needed.
