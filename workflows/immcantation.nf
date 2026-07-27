@@ -1,5 +1,6 @@
 include { INPUT_CHECK      } from '../subworkflows/local/input_check'
 include { PRESTO           } from '../subworkflows/local/presto'
+include { PRESTO_FAST      } from '../subworkflows/local/presto_fast'
 include { VDJ_ASSIGNMENT   } from '../subworkflows/local/vdj_assignment'
 include { CLONAL_ANALYSIS  } from '../subworkflows/local/clonal_analysis'
 
@@ -21,12 +22,20 @@ workflow IMMCANTATION {
     ch_reads = INPUT_CHECK.out.reads
 
     // QC: adapter trim + pRESTO masking + assembly
-    PRESTO(ch_reads, ch_cprimers, ch_vprimers)
+    if (params.fast) {
+        PRESTO_FAST(ch_reads, ch_cprimers, ch_vprimers)
+        ch_presto_fasta = PRESTO_FAST.out.fasta
+    } else {
+        PRESTO(ch_reads, ch_cprimers, ch_vprimers)
+        ch_presto_fasta = PRESTO.out.fasta
+    }
 
     // V(D)J gene assignment — uses $IGDATA + germlines inside container
-    VDJ_ASSIGNMENT(PRESTO.out.fasta, ch_igblast, ch_germlines)
+    VDJ_ASSIGNMENT(ch_presto_fasta, ch_igblast, ch_germlines)
 
     // Clonal analysis — method set by params.cloning_method
     // ('hierarchical' = SCOPer on this branch; 'exact' = DefineClones)
-    CLONAL_ANALYSIS(VDJ_ASSIGNMENT.out.airr_tab)
+    if (!params.skip_clonal) {
+        CLONAL_ANALYSIS(VDJ_ASSIGNMENT.out.airr_tab)
+    }
 }
