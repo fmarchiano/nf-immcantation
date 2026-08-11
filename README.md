@@ -38,7 +38,7 @@ fastp (QC + trim)
                                      +-- AssignGenes / IgBLAST (V(D)J annotation)
                                           +-- MakeDb (AIRR-format TSV)
                                                +-- ParseDb (productive filter + gene-level V/J calls)
-                                                    +-- DefineClones -- SCOPer hierarchical (default) or exact
+                                                    +-- SCOPer spectral (default) / hierarchical / exact
 ```
 
 All IgBLAST databases and IMGT germlines are bundled in the Docker containers -- no external reference downloads needed.
@@ -137,10 +137,12 @@ nextflow run /path/to/nf-immcantation \
 | `--buildconsensus_maxerror` | 0.1 | Max error within a UMI consensus group (UMI mode) |
 | `--buildconsensus_mincount` | 1 | Min reads per UMI to build a consensus (UMI mode) |
 | `--buildconsensus_maxgap` | 0.5 | Max gap fraction at a consensus position (UMI mode) |
-| `--cloning_method` | `hierarchical` | Clonal grouping: `hierarchical` (SCOPer hierarchicalClones, default) or `exact` (DefineClones `--model aa --dist 0`) |
+| `--cloning_method` | `hierarchical` | Clonal grouping: `hierarchical` (SCOPer, default) or `exact` (DefineClones `--model aa --dist 0`) |
+| `--scoper_method` | `novj` | SCOPer method: `novj` (spectralClones, default) or `nt` (hierarchicalClones nucleotide hamming) |
 | `--defineclones_model` | `aa` | DefineClones distance model when `cloning_method=exact` |
 | `--defineclones_dist` | 0.0 | DefineClones distance threshold (0 = exact CDR3 aa match) |
-| `--clonal_threshold` | 0.16 | SCOPer junction distance cutoff (only when `cloning_method=hierarchical`) |
+| `--clonal_threshold` | 0.16 | SCOPer junction distance cutoff (only when `scoper_method=nt`) |
+| `--cloneby` | `subject_id` | Group samples by this samplesheet column for clonal analysis |
 
 ---
 
@@ -161,7 +163,9 @@ results/
 |   +-- 01-assigngenes/{sample}/          # IgBLAST output (.fmt7)
 |   +-- 02-makedb/{sample}/               # AIRR-format TSV (db-pass.tsv)
 |   +-- 03-parsedb/{sample}/              # productive-only + v_call_gene/j_call_gene added
-+-- clonal_analysis/{subject}/            # clone-pass.tsv with clone_id column (if skip_clonal=false)
++-- clonal_analysis/{sample_or_subject}/  # clone-pass.tsv with clone_id (if skip_clonal=false)
+|   +-- qc/                              # SCOPer QC: inter_intra.tsv, eff_threshold.tsv, vjl_groups.tsv,
+|                                        #   scoper_summary.txt, spectral_density.pdf, clone_summary.pdf
 +-- pipeline_info/                        # Nextflow execution report, timeline, trace
 ```
 
@@ -176,9 +180,11 @@ results/
 - **UMI consensus is opt-in** (`--umi`, default off): by default reads are deduplicated by exact-match collapse + `DUPCOUNT >= 2`, which is fastest and works well when UMI bins are mostly singletons. With `--umi true` the C-read MaskPrimers step extracts the UMI into `BARCODE`, it is paired onto the V-read, each mate is consensus-built per UMI (`BuildConsensus`), the two consensus files are re-synced, and assembly proceeds as usual. Worth enabling only when UMIs have real bin depth and quantitative/error-sensitive accuracy matters. See `PLAN_umi_mode.md`.
 - **Productive + allele-strip step (ParseDb)**: the clonotype definition is `(V_gene, J_gene, CDR3_aa)` on productive sequences. After MakeDb we filter `productive=T` and write gene-level columns `v_call_gene` / `j_call_gene` for DefineClones to consume.
 - **Clonal grouping** (`--cloning_method`):
-  - `hierarchical` (default): SCOPer hierarchicalClones at `--clonal_threshold` (0.16), single linkage (diagnosis sensitivity, Gupta et al. 2017).
+  - `hierarchical` (default): SCOPer clonal clustering. The method is controlled by `--scoper_method`:
+    - `novj` (default): `spectralClones` -- data-driven spectral clustering that automatically determines the optimal distance threshold per VJL group. No fixed threshold required. Produces QC outputs (inter/intra distance distributions, effective thresholds, VJL groups, density and clone summary plots) in a `qc/` subfolder.
+    - `nt`: `hierarchicalClones` -- nucleotide hamming distance with a fixed `--clonal_threshold` (0.16) and single linkage (diagnosis sensitivity, Gupta et al. 2017).
   - `exact`: `DefineClones.py --model aa --dist 0 --vf v_call_gene --jf j_call_gene` -- exact `(V_gene, J_gene, CDR3_aa)` match. This is the mode used for the published-study benchmark on the [`briney`](../../tree/briney) branch.
-- **Grouping for clone definition**: samples from the same `params.cloneby` value (default `subject_id`) are clonotyped together, so clones span biological + technical replicates of one subject.
+- **Grouping for clone definition**: samples from the same `params.cloneby` value (default `subject_id`) are clonotyped together, so clones span biological + technical replicates of one subject. Use `--cloneby id` for per-sample cloning (recommended for large samples to avoid OOM with spectralClones).
 - **All references bundled**: IgBLAST DB and IMGT germlines come from the Docker containers; no external download required.
 
 ---
