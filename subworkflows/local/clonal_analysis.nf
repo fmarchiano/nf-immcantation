@@ -1,7 +1,6 @@
 include { CHANGEO_DEFINECLONES       } from '../../modules/local/changeo/defineclones/main'
 include { SCOPER_HIERARCHICALCLONES  } from '../../modules/local/scoper/hierarchicalclones/main'
 include { SHAZAM_DISTTONEAREST       } from '../../modules/local/shazam/disttonearest/main'
-include { SHAZAM_CLONALITYMEASURES   } from '../../modules/local/shazam/clonalitymeasures/main'
 
 workflow CLONAL_ANALYSIS {
     take:
@@ -44,10 +43,7 @@ workflow CLONAL_ANALYSIS {
         error "Invalid params.cloning_method: '${params.cloning_method}'. Must be 'exact' or 'hierarchical'."
     }
 
-    SHAZAM_CLONALITYMEASURES(ch_cloned)
-
     emit:
     cloned_tab = ch_cloned
-    clonality  = SHAZAM_CLONALITYMEASURES.out.measures
     threshold  = ch_threshold
 }
