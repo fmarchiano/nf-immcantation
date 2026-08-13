@@ -1,9 +1,11 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        wget \
+        wget curl \
         libgomp1 \
         procps \
+    && curl -fsSL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+       | tar xz -C /usr/local/bin s5cmd \
     && rm -rf /var/lib/apt/lists/*
 
 # IgBLAST 1.22.0 — only the igblastn binary is needed
@@ -16,4 +18,4 @@ RUN wget -q https://ftp.ncbi.nih.gov/blast/executables/igblast/release/1.22.0/nc
 # External igblast databases mounted here at runtime
 ENV IGDATA=/usr/local/share/igblast
 
-RUN pip install --no-cache-dir changeo==1.3.0
+RUN pip install --no-cache-dir changeo==1.3.0 awscli

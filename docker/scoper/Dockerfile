@@ -4,6 +4,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libcurl4-openssl-dev \
         libssl-dev \
         libxml2-dev \
+        curl \
+        python3-pip \
+    && curl -fsSL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+       | tar xz -C /usr/local/bin s5cmd \
+    && pip3 install --no-cache-dir --break-system-packages awscli \
     && rm -rf /var/lib/apt/lists/*
 
 # Debian's default CFLAGS include -Werror=format-security, which breaks the
