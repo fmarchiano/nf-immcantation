@@ -1,6 +1,8 @@
 include { CHANGEO_DEFINECLONES       } from '../../modules/local/changeo/defineclones/main'
 include { SCOPER_HIERARCHICALCLONES  } from '../../modules/local/scoper/hierarchicalclones/main'
+include { SCOPER_SPECTRALCLONES_FAST } from '../../modules/local/scoper/spectralclones_fast/main'
 include { SHAZAM_DISTTONEAREST       } from '../../modules/local/shazam/disttonearest/main'
+include { SHAZAM_CLONALITYMEASURES   } from '../../modules/local/shazam/clonalitymeasures/main'
 
 workflow CLONAL_ANALYSIS {
     take:
@@ -39,8 +41,15 @@ workflow CLONAL_ANALYSIS {
             SHAZAM_DISTTONEAREST(ch_grouped)
             ch_threshold = SHAZAM_DISTTONEAREST.out.threshold
         }
+    } else if (params.cloning_method == 'spectral_fast') {
+        SCOPER_SPECTRALCLONES_FAST(ch_grouped)
+        ch_cloned = SCOPER_SPECTRALCLONES_FAST.out.tab
+
+        // scoper-fast (Rust) computes clonality measures but not SHM —
+        // run the R-based SHM computation on the clone-pass output
+        SHAZAM_CLONALITYMEASURES(ch_cloned)
     } else {
-        error "Invalid params.cloning_method: '${params.cloning_method}'. Must be 'exact' or 'hierarchical'."
+        error "Invalid params.cloning_method: '${params.cloning_method}'. Must be 'exact', 'hierarchical', or 'spectral_fast'."
     }
 
     emit:

@@ -10,16 +10,38 @@ Designed for paired-end Illumina BCR heavy-chain (IGH) libraries carrying a C-re
 
 ## Pipeline modes
 
-Two profiles control which tool implementations are used. Compose them with infrastructure profiles (e.g. `-profile docker,local,boosted`):
+Two profiles control which tool implementations are used. Compose them with infrastructure profiles (e.g. `-profile aws_batch,boosted`):
 
-| Profile | pRESTo steps | Read assembly | IgBLAST | Description |
-|---------|-------------|---------------|---------|-------------|
-| **`bulletproof`** (default) | Stock pRESTo | PEAR | Stock `AssignGenes` | Safe, validated baseline using canonical Immcantation tools |
-| **`boosted`** | presto-fast (Rust) | AssemblePairsFast (Rust) | Stock `AssignGenes` | ~55% faster total compute time on Briney 2019 benchmarks |
+| Profile | pRESTo steps | Read assembly | Clonal analysis | Description |
+|---------|-------------|---------------|-----------------|-------------|
+| **`boosted`** (default) | presto-fast (Rust) | AssemblePairsFast (Rust) | scoper-fast (Rust) spectral | ~55% faster total compute using Rust-accelerated tools |
+| **`bulletproof`** | Stock pRESTo | PEAR | SCOPer (R) hierarchical | Safe, validated baseline using canonical Immcantation tools |
 
-Both modes share the same CHANGEO downstream steps (MakeDb, ParseDb, clonal analysis). Defaults are bulletproof -- no mode profile needed for the safe path.
+Both modes share the same CHANGEO downstream steps (MakeDb, ParseDb) and compute clonality diversity metrics + SHM frequencies (via shazam `observedMutations`).
 
 > **Note:** An experimental k-mer pre-filtered IgBLAST (`--pre_igblast`) is available but off by default in both modes. It provides 1.2-1.5x speedup on small instances (<=4 CPUs) but is slower than stock IgBLAST on large instances (>=8 CPUs) where igblastn's native multi-threading is more efficient.
+
+---
+
+## Infrastructure profiles
+
+Orthogonal to the pipeline mode, these profiles control where the pipeline runs:
+
+| Profile | Executor | Notes |
+|---------|----------|-------|
+| **`local`** | Local machine | Requires `docker` profile for container execution |
+| **`aws_batch`** | AWS Batch / Fargate | All containers pre-pushed to ECR; S3 workDir; Seqera Platform integration |
+| **`docker`** | -- | Enables Docker engine with `-u $(id -u):$(id -g)`; required for local runs |
+| **`test`** | -- | Bundled toy dataset with resource limits (4 CPUs, 6 GB RAM) |
+
+Combine profiles as needed:
+
+```bash
+nextflow run . -profile aws_batch              # boosted (default) on Fargate
+nextflow run . -profile local,docker           # boosted locally with Docker
+nextflow run . -profile bulletproof,local,docker  # stock path locally
+nextflow run . -profile bulletproof,aws_batch     # stock path on Fargate
+```
 
 ---
 
@@ -32,13 +54,17 @@ fastp (QC + trim)
        +-- MaskPrimers align  (V-read -- V-region primer)
             +-- PairSeq (synchronize the read pair; copy C_CALL onto the V-read)
                  +-- [ --umi: BuildConsensus per UMI barcode, then re-sync ]
-                      +-- PEAR (bulletproof) / AssemblePairsFast (boosted)
+                      +-- AssemblePairsFast (boosted) / PEAR (bulletproof)
                            +-- CollapseSeq (deduplicate)
                                 +-- SplitSeq (filter by duplicate count, DUPCOUNT >= 2)
                                      +-- AssignGenes / IgBLAST (V(D)J annotation)
                                           +-- MakeDb (AIRR-format TSV)
                                                +-- ParseDb (productive filter + gene-level V/J calls)
-                                                    +-- SCOPer spectral (default) / hierarchical / exact
+                                                    +-- Clonal analysis:
+                                                    |     scoper-fast spectral (boosted, default)
+                                                    |     SCOPer hierarchical (bulletproof)
+                                                    |     DefineClones exact (opt-in)
+                                                    +-- Clonality & SHM measures (shazam)
 ```
 
 All IgBLAST databases and IMGT germlines are bundled in the Docker containers -- no external reference downloads needed.
@@ -50,9 +76,9 @@ All IgBLAST databases and IMGT germlines are bundled in the Docker containers --
 | Tool | Version |
 |------|---------|
 | [Nextflow](https://www.nextflow.io/docs/latest/install.html) | >= 24.04.0 |
-| [Docker](https://docs.docker.com/get-docker/) | any recent |
+| [Docker](https://docs.docker.com/get-docker/) | any recent (local runs only) |
 
-Containers are pulled automatically based on the pipeline mode.
+Containers are pulled automatically based on the pipeline mode. For AWS Batch, all images are pre-pushed to ECR.
 
 ---
 
@@ -88,7 +114,7 @@ Example primer sets are provided under `assets/` to adapt to your own library.
 ### 4. Run
 
 ```bash
-# Bulletproof (default -- stock tools, safe baseline)
+# Boosted (default -- Rust-accelerated presto-fast + AssemblePairsFast + scoper-fast)
 nextflow run /path/to/nf-immcantation \
   -profile docker,local \
   --input /path/to/samplesheet.csv \
@@ -96,13 +122,21 @@ nextflow run /path/to/nf-immcantation \
   --vprimers /path/to/vprimers.fasta \
   --outdir /path/to/results
 
-# Boosted (Rust-accelerated presto-fast + AssemblePairsFast)
+# Bulletproof (stock tools, safe baseline)
 nextflow run /path/to/nf-immcantation \
-  -profile docker,local,boosted \
+  -profile docker,local,bulletproof \
   --input /path/to/samplesheet.csv \
   --cprimers /path/to/cprimers.fasta \
   --vprimers /path/to/vprimers.fasta \
   --outdir /path/to/results
+
+# AWS Batch / Fargate (boosted, default)
+nextflow run /path/to/nf-immcantation \
+  -profile aws_batch \
+  --input s3://bucket/samplesheet.csv \
+  --cprimers s3://bucket/cprimers.fasta \
+  --vprimers s3://bucket/vprimers.fasta \
+  --outdir s3://bucket/results
 ```
 
 #### Test run (bundled toy data, local resources)
@@ -132,13 +166,13 @@ nextflow run /path/to/nf-immcantation \
 | `--primer_maxlen_c` | 100 | Search window on the C-read (covers a barcode + offset preamble) |
 | `--primer_maxlen_v` | 35 | Search window on the V-read (covers the offset preamble) |
 | `--splitseq_min_count` | 2 | Minimum duplicate count to retain a sequence |
-| `--skip_clonal` | `true` | Skip clonal analysis (ParseDb is the last step) |
+| `--skip_clonal` | `false` | Skip clonal analysis (ParseDb is the last step) |
 | `--umi` | `false` | Opt-in UMI mode: extract the UMI as `BARCODE` and build a per-UMI consensus before assembly |
 | `--buildconsensus_maxerror` | 0.1 | Max error within a UMI consensus group (UMI mode) |
 | `--buildconsensus_mincount` | 1 | Min reads per UMI to build a consensus (UMI mode) |
 | `--buildconsensus_maxgap` | 0.5 | Max gap fraction at a consensus position (UMI mode) |
-| `--cloning_method` | `hierarchical` | Clonal grouping: `hierarchical` (SCOPer, default) or `exact` (DefineClones `--model aa --dist 0`) |
-| `--scoper_method` | `novj` | SCOPer method: `novj` (spectralClones, default) or `nt` (hierarchicalClones nucleotide hamming) |
+| `--cloning_method` | `spectral_fast` | Clonal grouping: `spectral_fast` (scoper-fast Rust, default), `hierarchical` (SCOPer R), or `exact` (DefineClones) |
+| `--scoper_method` | `novj` | SCOPer method (hierarchical mode only): `novj` (spectralClones) or `nt` (hierarchicalClones) |
 | `--defineclones_model` | `aa` | DefineClones distance model when `cloning_method=exact` |
 | `--defineclones_dist` | 0.0 | DefineClones distance threshold (0 = exact CDR3 aa match) |
 | `--clonal_threshold` | 0.16 | SCOPer junction distance cutoff (only when `scoper_method=nt`) |
@@ -155,19 +189,30 @@ results/
 |   +-- 02a-maskprimers-C/{sample}/       # MaskPrimers on the C-read (isotype primers)
 |   +-- 02b-maskprimers-V/{sample}/       # MaskPrimers on the V-read (VH primers)
 |   +-- 03-pairseq/{sample}/
-|   +-- 04-pear/{sample}/                 # PEAR-assembled reads (bulletproof)
 |   +-- 04-assemblepairs/{sample}/        # AssemblePairsFast output (boosted)
+|   +-- 04-pear/{sample}/                 # PEAR-assembled reads (bulletproof)
 |   +-- 05-collapseseq/{sample}/
 |   +-- 06-splitseq/{sample}/
 +-- vdj_annotation/
 |   +-- 01-assigngenes/{sample}/          # IgBLAST output (.fmt7)
 |   +-- 02-makedb/{sample}/               # AIRR-format TSV (db-pass.tsv)
 |   +-- 03-parsedb/{sample}/              # productive-only + v_call_gene/j_call_gene added
-+-- clonal_analysis/{sample_or_subject}/  # clone-pass.tsv with clone_id (if skip_clonal=false)
-|   +-- qc/                              # SCOPer QC: inter_intra.tsv, eff_threshold.tsv, vjl_groups.tsv,
-|                                        #   scoper_summary.txt, spectral_density.pdf, clone_summary.pdf
++-- clonal_analysis/{sample_or_subject}/  # clone-pass.tsv with clone_id
+|   +-- qc/                              # Clonality measures (diversity, SHM frequencies),
+|                                        #   SCOPer QC: inter_intra.tsv, eff_threshold.tsv,
+|                                        #   vjl_groups.tsv, scoper_summary.txt
 +-- pipeline_info/                        # Nextflow execution report, timeline, trace
 ```
+
+---
+
+## Clonality & SHM measures
+
+After clonal assignment, the pipeline computes per-subject diversity and somatic hypermutation (SHM) metrics, output as `*_clonality_measures.tsv`:
+
+**Diversity metrics:** clone count, Chao1 richness, Shannon entropy, Simpson index, Gini-Simpson, Pielou evenness, clonality index, Gini coefficient, D10/D50 (clones needed to reach 10%/50% of repertoire), top clone frequency/count, mean/median/max clone size.
+
+**SHM frequencies** (via shazam `observedMutations`, IMGT_V region definition): mean V-region mutation frequency, CDR replacement/silent, FWR replacement/silent.
 
 ---
 
@@ -177,13 +222,15 @@ results/
 - **Two MaskPrimers steps**:
   - C-read: isotype primers (IgM/IgG/...), preceded by a barcode + 2/4/6 nt offset preamble, `--maxlen 100`. The isotype name is written to `C_CALL` for downstream isotype assignment.
   - V-read: VH primers with a 2/4/6 nt offset, `--maxlen 35`. Removed pre-assembly.
-- **UMI consensus is opt-in** (`--umi`, default off): by default reads are deduplicated by exact-match collapse + `DUPCOUNT >= 2`, which is fastest and works well when UMI bins are mostly singletons. With `--umi true` the C-read MaskPrimers step extracts the UMI into `BARCODE`, it is paired onto the V-read, each mate is consensus-built per UMI (`BuildConsensus`), the two consensus files are re-synced, and assembly proceeds as usual. Worth enabling only when UMIs have real bin depth and quantitative/error-sensitive accuracy matters. See `PLAN_umi_mode.md`.
+- **UMI consensus is opt-in** (`--umi`, default off): by default reads are deduplicated by exact-match collapse + `DUPCOUNT >= 2`, which is fastest and works well when UMI bins are mostly singletons. With `--umi true` the C-read MaskPrimers step extracts the UMI into `BARCODE`, it is paired onto the V-read, each mate is consensus-built per UMI (`BuildConsensus`), the two consensus files are re-synced, and assembly proceeds as usual. Worth enabling only when UMIs have real bin depth and quantitative/error-sensitive accuracy matters.
 - **Productive + allele-strip step (ParseDb)**: the clonotype definition is `(V_gene, J_gene, CDR3_aa)` on productive sequences. After MakeDb we filter `productive=T` and write gene-level columns `v_call_gene` / `j_call_gene` for DefineClones to consume.
 - **Clonal grouping** (`--cloning_method`):
-  - `hierarchical` (default): SCOPer clonal clustering. The method is controlled by `--scoper_method`:
-    - `novj` (default): `spectralClones` -- data-driven spectral clustering that automatically determines the optimal distance threshold per VJL group. No fixed threshold required. Produces QC outputs (inter/intra distance distributions, effective thresholds, VJL groups, density and clone summary plots) in a `qc/` subfolder.
+  - `spectral_fast` (default, boosted): scoper-fast -- a Rust drop-in for SCOPer's spectral clustering. Data-driven spectral clustering that automatically determines the optimal distance threshold per VJL group. No fixed threshold required. ~12x smaller container image than the R version.
+  - `hierarchical` (bulletproof): SCOPer R. The method is controlled by `--scoper_method`:
+    - `novj` (default): `spectralClones` -- spectral clustering via R.
     - `nt`: `hierarchicalClones` -- nucleotide hamming distance with a fixed `--clonal_threshold` (0.16) and single linkage (diagnosis sensitivity, Gupta et al. 2017).
   - `exact`: `DefineClones.py --model aa --dist 0 --vf v_call_gene --jf j_call_gene` -- exact `(V_gene, J_gene, CDR3_aa)` match. This is the mode used for the published-study benchmark on the [`briney`](../../tree/briney) branch.
+- **SHM computation**: In the `hierarchical` path, SHM is computed inline within the R SCOPer script. In the `spectral_fast` path, scoper-fast (Rust) computes clonality measures but not SHM, so a follow-up R step (`SHAZAM_CLONALITYMEASURES`) runs shazam's `observedMutations` on the clone-pass output using the stock SCOPer R container.
 - **Grouping for clone definition**: samples from the same `params.cloneby` value (default `subject_id`) are clonotyped together, so clones span biological + technical replicates of one subject. Use `--cloneby id` for per-sample cloning (recommended for large samples to avoid OOM with spectralClones).
 - **All references bundled**: IgBLAST DB and IMGT germlines come from the Docker containers; no external download required.
 
