@@ -64,7 +64,9 @@ fastp (QC + trim)
                                                     |     scoper-fast spectral (boosted, default)
                                                     |     SCOPer hierarchical (bulletproof)
                                                     |     DefineClones exact (opt-in)
-                                                    +-- Clonality & SHM measures (shazam)
+                                                    +-- CreateGermlines (clonal consensus germline)
+                                                         +-- SHM frequencies (shazam observedMutations)
+                                                              +-- Clonality & SHM measures summary
 ```
 
 All IgBLAST databases and IMGT germlines are bundled in the Docker containers -- no external reference downloads needed.
@@ -197,8 +199,8 @@ results/
 |   +-- 01-assigngenes/{sample}/          # IgBLAST output (.fmt7)
 |   +-- 02-makedb/{sample}/               # AIRR-format TSV (db-pass.tsv)
 |   +-- 03-parsedb/{sample}/              # productive-only + v_call_gene/j_call_gene added
-+-- clonal_analysis/{sample_or_subject}/  # clone-pass.tsv with clone_id
-|   +-- qc/                              # Clonality measures (diversity, SHM frequencies),
++-- clonal_analysis/{sample_or_subject}/  # clone-pass.tsv, germ-pass.tsv, shm-pass.tsv
+|   +-- qc/                              # clonality_measures.tsv (diversity + SHM summary),
 |                                        #   SCOPer QC: inter_intra.tsv, eff_threshold.tsv,
 |                                        #   vjl_groups.tsv, scoper_summary.txt
 +-- pipeline_info/                        # Nextflow execution report, timeline, trace
@@ -206,13 +208,37 @@ results/
 
 ---
 
-## Clonality & SHM measures
+## Germline reconstruction & SHM
 
-After clonal assignment, the pipeline computes per-subject diversity and somatic hypermutation (SHM) metrics, output as `*_clonality_measures.tsv`:
+After clonal assignment, the pipeline runs two additional steps:
 
-**Diversity metrics:** clone count, Chao1 richness, Shannon entropy, Simpson index, Gini-Simpson, Pielou evenness, clonality index, Gini coefficient, D10/D50 (clones needed to reach 10%/50% of repertoire), top clone frequency/count, mean/median/max clone size.
+### CreateGermlines
 
-**SHM frequencies** (via shazam `observedMutations`, IMGT_V region definition): mean V-region mutation frequency, CDR replacement/silent, FWR replacement/silent.
+`CreateGermlines.py` (Change-O) reconstructs the true unmutated germline for each sequence using the clonal consensus. IgBLAST's initial germline has Ns in the junction/CDR3 region; CreateGermlines fills these using the clonal group, producing `germline_alignment_d_mask` (D-segment masked) alongside `germline_alignment` (full) and region-level annotations. Output: `*_germ-pass.tsv`.
+
+### SHM frequencies (observedMutations)
+
+`SHAZAM_CLONALITYMEASURES` computes somatic hypermutation using shazam's `observedMutations()` with the `IMGT_V` region definition against the reconstructed `germline_alignment_d_mask`. CDR and FWR regions are always kept separate, replacement (R) and silent (S) mutations are always kept separate.
+
+**Per-sequence** (`*_shm-pass.tsv`): each row gets `mu_freq_cdr_r`, `mu_freq_cdr_s`, `mu_freq_fwr_r`, `mu_freq_fwr_s` columns — the raw per-detection mutation frequencies for downstream analysis (correlation with isotype, clone membership, lineage position, etc.).
+
+**Per-clone**: mean of per-sequence mu_freq within each clone.
+
+**Patient-level summary** (`*_clonality_measures.tsv`): three views per region, designed to detect monoclonal expansion:
+
+| Suffix | Aggregation | Interpretation |
+|--------|------------|----------------|
+| `*_weighted` | Clone-frequency-weighted mean | "What mutation level does a random B cell carry?" Dominated by expanded clones |
+| `*_median` | Unweighted median across clones | "What does the typical clone look like?" Robust to expansion |
+| `*_top_clone` | SHM of the largest clone | Direct monoclonal expansion flag |
+
+A large gap between `weighted` and `median` signals a dominant expanded clone pulling the weighted mean.
+
+## Clonality measures
+
+The same `*_clonality_measures.tsv` includes repertoire diversity metrics:
+
+**Diversity:** clone count, Chao1 richness, Shannon entropy, Simpson index, Gini-Simpson, Pielou evenness, clonality index, Gini coefficient, D10/D50 (clones needed to reach 10%/50% of repertoire), top clone frequency/count, mean/median/max clone size.
 
 ---
 
@@ -230,7 +256,7 @@ After clonal assignment, the pipeline computes per-subject diversity and somatic
     - `novj` (default): `spectralClones` -- spectral clustering via R.
     - `nt`: `hierarchicalClones` -- nucleotide hamming distance with a fixed `--clonal_threshold` (0.16) and single linkage (diagnosis sensitivity, Gupta et al. 2017).
   - `exact`: `DefineClones.py --model aa --dist 0 --vf v_call_gene --jf j_call_gene` -- exact `(V_gene, J_gene, CDR3_aa)` match. This is the mode used for the published-study benchmark on the [`briney`](../../tree/briney) branch.
-- **SHM computation**: In the `hierarchical` path, SHM is computed inline within the R SCOPer script. In the `spectral_fast` path, scoper-fast (Rust) computes clonality measures but not SHM, so a follow-up R step (`SHAZAM_CLONALITYMEASURES`) runs shazam's `observedMutations` on the clone-pass output using the stock SCOPer R container.
+- **Germline + SHM chain**: all three cloning methods feed into the same post-cloning chain: `CreateGermlines` (clonal consensus germline reconstruction, Change-O container) → `SHAZAM_CLONALITYMEASURES` (per-sequence SHM via `observedMutations` against `germline_alignment_d_mask`, SCOPer R container). SHM uses the D-masked germline to avoid counting the hypervariable D-segment as mutations.
 - **Grouping for clone definition**: samples from the same `params.cloneby` value (default `subject_id`) are clonotyped together, so clones span biological + technical replicates of one subject. Use `--cloneby id` for per-sample cloning (recommended for large samples to avoid OOM with spectralClones).
 - **All references bundled**: IgBLAST DB and IMGT germlines come from the Docker containers; no external download required.
 

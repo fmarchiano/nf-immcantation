@@ -36,6 +36,6 @@ workflow IMMCANTATION {
     // Clonal analysis — method set by params.cloning_method
     // ('hierarchical' = SCOPer on this branch; 'exact' = DefineClones)
     if (!params.skip_clonal) {
-        CLONAL_ANALYSIS(VDJ_ASSIGNMENT.out.airr_tab)
+        CLONAL_ANALYSIS(VDJ_ASSIGNMENT.out.airr_tab, ch_germlines)
     }
 }

@@ -1,4 +1,5 @@
 include { CHANGEO_DEFINECLONES       } from '../../modules/local/changeo/defineclones/main'
+include { CHANGEO_CREATEGERMLINES    } from '../../modules/local/changeo/creategermlines/main'
 include { SCOPER_HIERARCHICALCLONES  } from '../../modules/local/scoper/hierarchicalclones/main'
 include { SCOPER_SPECTRALCLONES_FAST } from '../../modules/local/scoper/spectralclones_fast/main'
 include { SHAZAM_DISTTONEAREST       } from '../../modules/local/shazam/disttonearest/main'
@@ -6,7 +7,8 @@ include { SHAZAM_CLONALITYMEASURES   } from '../../modules/local/shazam/clonalit
 
 workflow CLONAL_ANALYSIS {
     take:
-    ch_airr   // [meta, *_parse-pass.tsv]
+    ch_airr       // [meta, *_parse-pass.tsv]
+    ch_germlines  // path to germlines dir
 
     main:
     // Group samples by cloneby (e.g. subject_id) so clones are defined across
@@ -44,15 +46,19 @@ workflow CLONAL_ANALYSIS {
     } else if (params.cloning_method == 'spectral_fast') {
         SCOPER_SPECTRALCLONES_FAST(ch_grouped)
         ch_cloned = SCOPER_SPECTRALCLONES_FAST.out.tab
-
-        // scoper-fast (Rust) computes clonality measures but not SHM —
-        // run the R-based SHM computation on the clone-pass output
-        SHAZAM_CLONALITYMEASURES(ch_cloned)
     } else {
         error "Invalid params.cloning_method: '${params.cloning_method}'. Must be 'exact', 'hierarchical', or 'spectral_fast'."
     }
 
+    // Reconstruct germline sequences using clonal consensus
+    CHANGEO_CREATEGERMLINES(ch_cloned, ch_germlines)
+
+    // Per-sequence SHM + clone-level clonality measures
+    SHAZAM_CLONALITYMEASURES(CHANGEO_CREATEGERMLINES.out.tab)
+
     emit:
     cloned_tab = ch_cloned
+    shm_tab    = SHAZAM_CLONALITYMEASURES.out.tab
+    measures   = SHAZAM_CLONALITYMEASURES.out.measures
     threshold  = ch_threshold
 }
