@@ -33,8 +33,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         procps \
+        unzip \
     && curl -fsSL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
        | tar xz -C /usr/local/bin s5cmd \
+    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscli.zip \
+    && unzip -q /tmp/awscli.zip -d /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/awscli.zip /tmp/aws \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/target/release/scoper-fast /usr/local/bin/

@@ -16,7 +16,7 @@ process SCOPER_SPECTRALCLONES_FAST {
     path "versions.yml",                       emit: versions
 
     script:
-    def nproc    = task.cpus ?: 1
+    def nproc    = task.cpus
     def tab_list = tabs instanceof List ? tabs.join(' ') : tabs
     """
     run_scoper_fast.sh ${meta.id} novj none 0 ${nproc} ${tab_list}
