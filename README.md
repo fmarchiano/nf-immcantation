@@ -50,8 +50,9 @@ nextflow run . -profile bulletproof,aws_batch     # stock path on Fargate
 ```
 fastp (QC + trim)
   +-- GUNZIP (decompress for pRESTo)
-       +-- MaskPrimers align  (C-read -- isotype primer -> C_CALL)
-       +-- MaskPrimers align  (V-read -- V-region primer)
+       +-- FilterSeq quality  (discard reads below mean Phred Q20)
+            +-- MaskPrimers align  (C-read -- isotype primer -> C_CALL)
+            +-- MaskPrimers align  (V-read -- V-region primer)
             +-- PairSeq (synchronize the read pair; copy C_CALL onto the V-read)
                  +-- [ --umi: BuildConsensus per UMI barcode, then re-sync ]
                       +-- AssemblePairsFast (boosted) / PEAR (bulletproof)
@@ -163,6 +164,7 @@ nextflow run /path/to/nf-immcantation \
 | `--outdir` | -- | Output directory (required) |
 | `--fastp_q` | 20 | Minimum base quality (phred) |
 | `--fastp_window_size` | 5 | Sliding-window size for 3' trimming |
+| `--filterseq_q` | 20 | Mean Phred quality threshold for FilterSeq (reads below this are discarded) |
 | `--primer_maxerror_c` | 0.3 | MaskPrimers max error rate (C-read) |
 | `--primer_maxerror_v` | 0.2 | MaskPrimers max error rate (V-read) |
 | `--primer_maxlen_c` | 100 | Search window on the C-read (covers a barcode + offset preamble) |
@@ -188,6 +190,7 @@ nextflow run /path/to/nf-immcantation \
 results/
 +-- fastp/{sample}/                       # QC reports + trimmed reads
 +-- presto/
+|   +-- 01-filterseq/{sample}/            # FilterSeq quality-filtered reads + log
 |   +-- 02a-maskprimers-C/{sample}/       # MaskPrimers on the C-read (isotype primers)
 |   +-- 02b-maskprimers-V/{sample}/       # MaskPrimers on the V-read (VH primers)
 |   +-- 03-pairseq/{sample}/
