@@ -171,6 +171,7 @@ nextflow run /path/to/nf-immcantation \
 | `--primer_maxlen_v` | 35 | Search window on the V-read (covers the offset preamble) |
 | `--splitseq_min_count` | 2 | Minimum duplicate count to retain a sequence |
 | `--skip_clonal` | `false` | Skip clonal analysis (ParseDb is the last step) |
+| `--cread` | `R1` | Which FASTQ read carries the C-region primer (`R1` or `R2`). The other read is the V-read |
 | `--umi` | `false` | Opt-in UMI mode: extract the UMI as `BARCODE` and build a per-UMI consensus before assembly |
 | `--buildconsensus_maxerror` | 0.1 | Max error within a UMI consensus group (UMI mode) |
 | `--buildconsensus_mincount` | 1 | Min reads per UMI to build a consensus (UMI mode) |
@@ -247,7 +248,7 @@ The same `*_clonality_measures.tsv` includes repertoire diversity metrics:
 
 ## Design notes
 
-- **Read orientation**: the C-read carries the isotype/C-region primer and the V-read carries the V-region primer. Some library layouts place the C-read on R1 and the V-read on R2 -- inverted from the common R1 = V convention -- so confirm the orientation against primer hits on your raw FASTQs.
+- **Read orientation**: the C-read carries the isotype/C-region primer and the V-read carries the V-region primer. By default R1 = C-read and R2 = V-read (`--cread R1`). If your library has the C-region primer on R2 instead, set `--cread R2` to swap the assignment. Confirm the orientation against primer hits on your raw FASTQs.
 - **Two MaskPrimers steps**:
   - C-read: isotype primers (IgM/IgG/...), preceded by a barcode + 2/4/6 nt offset preamble, `--maxlen 100`. The isotype name is written to `C_CALL` for downstream isotype assignment.
   - V-read: VH primers with a 2/4/6 nt offset, `--maxlen 35`. Removed pre-assembly.

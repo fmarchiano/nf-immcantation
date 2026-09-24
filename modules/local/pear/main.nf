@@ -24,6 +24,13 @@ process PEAR {
         -j ${task.cpus} \\
         ${args}
 
+    # PEAR overlap merging can overflow quality scores above ASCII 126 (~),
+    # which breaks BioPython's UTF-8 text-mode reader in CollapseSeq.
+    # Clamp every quality byte > 126 to ~ (Phred 93, max representable).
+    awk 'NR%4==0 { gsub(/[^\\x21-\\x7E]/, "~"); } { print }' \\
+        ${meta.id}.assembled.fastq > ${meta.id}.assembled.clamped.fastq \\
+        && mv ${meta.id}.assembled.clamped.fastq ${meta.id}.assembled.fastq
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         pear: \$(pear 2>&1 | grep -E '^PEAR v' | awk '{print \$2}' | tr -d 'v')

@@ -29,10 +29,10 @@ workflow PRESTO {
     // 3. Quality-filter reads by mean Phred score
     PRESTO_FILTERSEQ(GUNZIP.out.reads, params.filterseq_q)
 
-    // 4. Split into C-read (reads[0]) and V-read (reads[1])
-    //    Briney 2019 SRA dump has inverted convention: R1=C-side, R2=V-side
-    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[0] ] }
-    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[1] ] }
+    def ci = params.cread == 'R2' ? 1 : 0
+    def vi = params.cread == 'R2' ? 0 : 1
+    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
 
     // 4a. MaskPrimers on C-read with isotype-specific primers.
     //     Header annotated with C_CALL (isotype); in UMI mode (--umi) also

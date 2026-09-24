@@ -27,8 +27,10 @@ workflow PRESTO_FAST {
 
     PRESTO_FILTERSEQ(GUNZIP.out.reads, params.filterseq_q)
 
-    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[0] ] }
-    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[1] ] }
+    def ci = params.cread == 'R2' ? 1 : 0
+    def vi = params.cread == 'R2' ? 0 : 1
+    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
 
     PRESTO_MASKPRIMERS_C(ch_cread, ch_cprimers.collect(), 'C')
     PRESTO_MASKPRIMERS_V(ch_vread, ch_vprimers.collect(), 'V')

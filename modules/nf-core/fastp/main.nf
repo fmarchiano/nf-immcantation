@@ -68,11 +68,13 @@ process FASTP {
     } else {
         def merge_fastq = save_merged ? "-m --merged_out ${prefix}.merged.fastq.gz" : ''
         """
-        [ ! -f  ${prefix}_R1.fastq.gz ] && ln -sf ${reads[0]} ${prefix}_R1.fastq.gz
-        [ ! -f  ${prefix}_R2.fastq.gz ] && ln -sf ${reads[1]} ${prefix}_R2.fastq.gz
+        r1_ext=\$( [[ "${reads[0]}" == *.gz ]] && echo ".fastq.gz" || echo ".fastq" )
+        r2_ext=\$( [[ "${reads[1]}" == *.gz ]] && echo ".fastq.gz" || echo ".fastq" )
+        [ ! -f  ${prefix}_R1\${r1_ext} ] && ln -sf ${reads[0]} ${prefix}_R1\${r1_ext}
+        [ ! -f  ${prefix}_R2\${r2_ext} ] && ln -sf ${reads[1]} ${prefix}_R2\${r2_ext}
         fastp \\
-            --in1 ${prefix}_R1.fastq.gz \\
-            --in2 ${prefix}_R2.fastq.gz \\
+            --in1 ${prefix}_R1\${r1_ext} \\
+            --in2 ${prefix}_R2\${r2_ext} \\
             $out_fq1 \\
             $out_fq2 \\
             --json ${prefix}.fastp.json \\
