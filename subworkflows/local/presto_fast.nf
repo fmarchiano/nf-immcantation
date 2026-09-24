@@ -1,5 +1,6 @@
 include { FASTP                                                           } from '../../modules/nf-core/fastp/main'
 include { GUNZIP                                                          } from '../../modules/local/presto/gunzip/main'
+include { PRESTO_FILTERSEQ                                                } from '../../modules/local/presto/filterseq/main'
 include { PRESTO_MASKPRIMERS_FAST as PRESTO_MASKPRIMERS_C                 } from '../../../implementations/presto/maskprimers-fast/nextflow/maskprimers_fast/main'
 include { PRESTO_MASKPRIMERS_FAST as PRESTO_MASKPRIMERS_V                 } from '../../../implementations/presto/maskprimers-fast/nextflow/maskprimers_fast/main'
 include { PRESTO_PAIRSEQ_FAST     as PRESTO_PAIRSEQ                       } from '../../../implementations/presto/pairseq-fast/nextflow/pairseq_fast/main'
@@ -24,8 +25,10 @@ workflow PRESTO_FAST {
 
     GUNZIP(FASTP.out.reads)
 
-    ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[0] ] }
-    ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[1] ] }
+    PRESTO_FILTERSEQ(GUNZIP.out.reads, params.filterseq_q)
+
+    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[0] ] }
+    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[1] ] }
 
     PRESTO_MASKPRIMERS_C(ch_cread, ch_cprimers.collect(), 'C')
     PRESTO_MASKPRIMERS_V(ch_vread, ch_vprimers.collect(), 'V')

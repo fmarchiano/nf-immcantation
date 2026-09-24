@@ -1,5 +1,6 @@
 include { FASTP                                              } from '../../modules/nf-core/fastp/main'
 include { GUNZIP                                             } from '../../modules/local/presto/gunzip/main'
+include { PRESTO_FILTERSEQ                                   } from '../../modules/local/presto/filterseq/main'
 include { PRESTO_MASKPRIMERS_ALIGN as PRESTO_MASKPRIMERS_C   } from '../../modules/local/presto/maskprimers_align/main'
 include { PRESTO_MASKPRIMERS_ALIGN as PRESTO_MASKPRIMERS_V   } from '../../modules/local/presto/maskprimers_align/main'
 include { PRESTO_PAIRSEQ                                     } from '../../modules/local/presto/pairseq/main'
@@ -25,10 +26,13 @@ workflow PRESTO {
     // 2. Decompress fastp output — pRESTO tools need uncompressed FASTQ
     GUNZIP(FASTP.out.reads)
 
-    // 3. Split into C-read (reads[0]) and V-read (reads[1])
+    // 3. Quality-filter reads by mean Phred score
+    PRESTO_FILTERSEQ(GUNZIP.out.reads, params.filterseq_q)
+
+    // 4. Split into C-read (reads[0]) and V-read (reads[1])
     //    Briney 2019 SRA dump has inverted convention: R1=C-side, R2=V-side
-    ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[0] ] }
-    ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[1] ] }
+    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[0] ] }
+    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[1] ] }
 
     // 4a. MaskPrimers on C-read with isotype-specific primers.
     //     Header annotated with C_CALL (isotype); in UMI mode (--umi) also
