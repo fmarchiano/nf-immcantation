@@ -7,6 +7,8 @@ include { PRESTO_MASKPRIMERS_FAST as PRESTO_MASKPRIMERS_V                 } from
 include { PRESTO_PAIRSEQ_FAST     as PRESTO_PAIRSEQ                       } from '../../../implementations/presto/pairseq-fast/nextflow/pairseq_fast/main'
 include { PRESTO_PAIRSEQ_FAST     as PAIRSEQ_BARCODE                      } from '../../../implementations/presto/pairseq-fast/nextflow/pairseq_fast/main'
 include { PRESTO_PAIRSEQ_FAST     as PAIRSEQ_CONSENSUS                    } from '../../../implementations/presto/pairseq-fast/nextflow/pairseq_fast/main'
+include { PRESTO_CLUSTERSETS                                               } from '../../modules/local/presto/clustersets/main'
+include { PRESTO_PAIRSEQ_FAST     as PAIRSEQ_CLUSTERSETS                   } from '../../../implementations/presto/pairseq-fast/nextflow/pairseq_fast/main'
 include { PRESTO_BUILDCONSENSUS_FAST as BUILDCONSENSUS_V                  } from '../../../implementations/presto/buildconsensus-fast/nextflow/buildconsensus_fast/main'
 include { PRESTO_BUILDCONSENSUS_FAST as BUILDCONSENSUS_C                  } from '../../../implementations/presto/buildconsensus-fast/nextflow/buildconsensus_fast/main'
 include { PEAR                                                            } from '../../modules/local/pear/main'
@@ -47,8 +49,11 @@ workflow PRESTO_FAST {
     if (params.umi) {
         PAIRSEQ_BARCODE(ch_paired)
 
-        ch_v_bc = PAIRSEQ_BARCODE.out.reads.map { meta, r1, r2 -> [ meta, r1 ] }
-        ch_c_bc = PAIRSEQ_BARCODE.out.reads.map { meta, r1, r2 -> [ meta, r2 ] }
+        PRESTO_CLUSTERSETS(PAIRSEQ_BARCODE.out.reads)
+        PAIRSEQ_CLUSTERSETS(PRESTO_CLUSTERSETS.out.reads)
+
+        ch_v_bc = PAIRSEQ_CLUSTERSETS.out.reads.map { meta, r1, r2 -> [ meta, r1 ] }
+        ch_c_bc = PAIRSEQ_CLUSTERSETS.out.reads.map { meta, r1, r2 -> [ meta, r2 ] }
         BUILDCONSENSUS_V(ch_v_bc, 'V')
         BUILDCONSENSUS_C(ch_c_bc, 'C')
 

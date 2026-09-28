@@ -7,6 +7,8 @@ include { PRESTO_MASKPRIMERS_ALIGN as PRESTO_MASKPRIMERS_V   } from '../../modul
 include { PRESTO_PAIRSEQ                                     } from '../../modules/local/presto/pairseq/main'
 include { PRESTO_PAIRSEQ as PAIRSEQ_BARCODE                  } from '../../modules/local/presto/pairseq/main'
 include { PRESTO_PAIRSEQ as PAIRSEQ_CONSENSUS                } from '../../modules/local/presto/pairseq/main'
+include { PRESTO_CLUSTERSETS                                  } from '../../modules/local/presto/clustersets/main'
+include { PRESTO_PAIRSEQ as PAIRSEQ_CLUSTERSETS               } from '../../modules/local/presto/pairseq/main'
 include { PRESTO_BUILDCONSENSUS as BUILDCONSENSUS_V          } from '../../modules/local/presto/buildconsensus/main'
 include { PRESTO_BUILDCONSENSUS as BUILDCONSENSUS_C          } from '../../modules/local/presto/buildconsensus/main'
 include { PEAR                                               } from '../../modules/local/pear/main'
@@ -58,9 +60,14 @@ workflow PRESTO {
         //    both mates can be consensus-built per UMI.
         PAIRSEQ_BARCODE(ch_paired)
 
+        // 5b. Cluster UMI barcodes by sequence similarity (vsearch, 90% identity).
+        //     Merges CLUSTER into BARCODE so BuildConsensus groups by UMI+cluster.
+        PRESTO_CLUSTERSETS(PAIRSEQ_BARCODE.out.reads)
+        PAIRSEQ_CLUSTERSETS(PRESTO_CLUSTERSETS.out.reads)
+
         // 6. Per-UMI consensus on each mate (grouped by the BARCODE field)
-        ch_v_bc = PAIRSEQ_BARCODE.out.reads.map { meta, r1, r2 -> [ meta, r1 ] }
-        ch_c_bc = PAIRSEQ_BARCODE.out.reads.map { meta, r1, r2 -> [ meta, r2 ] }
+        ch_v_bc = PAIRSEQ_CLUSTERSETS.out.reads.map { meta, r1, r2 -> [ meta, r1 ] }
+        ch_c_bc = PAIRSEQ_CLUSTERSETS.out.reads.map { meta, r1, r2 -> [ meta, r2 ] }
         BUILDCONSENSUS_V(ch_v_bc, 'V')
         BUILDCONSENSUS_C(ch_c_bc, 'C')
 
