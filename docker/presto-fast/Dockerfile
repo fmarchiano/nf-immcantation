@@ -1,5 +1,6 @@
 # presto-fast: Rust-accelerated drop-in replacements for pRESTo tools
 # Tools: MaskPrimersFast, AssemblePairsFast, CollapseSeqFast, PairSeqFast, BuildConsensusFast
+# Stock pRESTo: FilterSeq.py, ParseLog.py, SplitSeq.py (no Rust port — trivial compute)
 #
 # Build context: the presto source repo (not this directory).
 #   docker build -t <tag> -f docker/presto-fast/Dockerfile /path/to/presto/
@@ -56,6 +57,9 @@ RUN pip install --no-cache-dir \
         ./buildconsensus-fast/ \
         ./pairseq-fast/
 
+# Stock pRESTo for FilterSeq.py, ParseLog.py (I/O-bound, no Rust needed)
+RUN pip install --no-cache-dir packaging presto==0.7.2
+
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────
 FROM python:3.11-slim
@@ -75,5 +79,7 @@ COPY --from=builder /usr/local/bin/CollapseSeqFast      /usr/local/bin/
 COPY --from=builder /usr/local/bin/BuildConsensusFast.py /usr/local/bin/
 COPY --from=builder /usr/local/bin/PairSeqFast.py       /usr/local/bin/
 COPY --from=builder /usr/local/bin/SplitSeq.py          /usr/local/bin/
+COPY --from=builder /usr/local/bin/FilterSeq.py         /usr/local/bin/
+COPY --from=builder /usr/local/bin/ParseLog.py          /usr/local/bin/
 
 CMD ["bash"]
