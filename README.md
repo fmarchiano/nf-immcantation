@@ -50,24 +50,25 @@ nextflow run . -profile bulletproof,aws_batch     # stock path on Fargate
 ```
 fastp (QC + trim)
   +-- GUNZIP (decompress for pRESTo)
-       +-- FilterSeq quality  (discard reads below mean Phred Q20)
+       +-- [ --umi: FilterSeq quality on R1+R2 (pre-assembly, mean Phred >= Q20) ]
             +-- MaskPrimers align  (C-read -- isotype primer -> C_CALL)
             +-- MaskPrimers align  (V-read -- V-region primer)
-            +-- PairSeq (synchronize the read pair; copy C_CALL onto the V-read)
-                 +-- [ --umi: BuildConsensus per UMI barcode, then re-sync ]
-                      +-- AssemblePairsFast (boosted) / PEAR (bulletproof)
-                           +-- CollapseSeq (deduplicate)
-                                +-- SplitSeq (filter by duplicate count, DUPCOUNT >= 2)
-                                     +-- AssignGenes / IgBLAST (V(D)J annotation)
-                                          +-- MakeDb (AIRR-format TSV)
-                                               +-- ParseDb (productive filter + gene-level V/J calls)
-                                                    +-- Clonal analysis:
-                                                    |     scoper-fast spectral (boosted, default)
-                                                    |     SCOPer hierarchical (bulletproof)
-                                                    |     DefineClones exact (opt-in)
-                                                    +-- CreateGermlines (clonal consensus germline)
-                                                         +-- SHM frequencies (shazam observedMutations)
-                                                              +-- Clonality & SHM measures summary
+                 +-- PairSeq (synchronize the read pair; copy C_CALL onto the V-read)
+                      +-- [ --umi: BuildConsensus per UMI barcode, then re-sync ]
+                           +-- AssemblePairsFast (boosted) / PEAR (bulletproof)
+                                +-- [ non-UMI: FilterSeq quality (post-assembly, mean Phred >= Q20) ]
+                                     +-- CollapseSeq (deduplicate)
+                                          +-- SplitSeq (filter by duplicate count, DUPCOUNT >= 2)
+                                               +-- AssignGenes / IgBLAST (V(D)J annotation)
+                                                    +-- MakeDb (AIRR-format TSV)
+                                                         +-- ParseDb (productive filter + gene-level V/J calls)
+                                                              +-- Clonal analysis:
+                                                              |     scoper-fast spectral (boosted, default)
+                                                              |     SCOPer hierarchical (bulletproof)
+                                                              |     DefineClones exact (opt-in)
+                                                              +-- CreateGermlines (clonal consensus germline)
+                                                                   +-- SHM frequencies (shazam observedMutations)
+                                                                        +-- Clonality & SHM measures summary
 ```
 
 All IgBLAST databases and IMGT germlines are bundled in the Docker containers -- no external reference downloads needed.
@@ -252,6 +253,9 @@ The same `*_clonality_measures.tsv` includes repertoire diversity metrics:
 - **Two MaskPrimers steps**:
   - C-read: isotype primers (IgM/IgG/...), preceded by a barcode + 2/4/6 nt offset preamble, `--maxlen 100`. The isotype name is written to `C_CALL` for downstream isotype assignment.
   - V-read: VH primers with a 2/4/6 nt offset, `--maxlen 35`. Removed pre-assembly.
+- **FilterSeq quality gate** (`--filterseq_q`, default 20): discards reads whose mean Phred score falls below the threshold. Placement matches [nf-core/airrflow](https://github.com/nf-core/airrflow):
+  - **UMI mode** (`--umi`): pre-assembly — filters R1 and R2 independently after GUNZIP, before MaskPrimers. Catches garbage reads before any expensive downstream work.
+  - **Non-UMI mode** (default): post-assembly — filters the single assembled read after PEAR/AssemblePairsFast, before CollapseSeq. Lets a good overlap rescue a mediocre mate.
 - **UMI consensus is opt-in** (`--umi`, default off): by default reads are deduplicated by exact-match collapse + `DUPCOUNT >= 2`, which is fastest and works well when UMI bins are mostly singletons. With `--umi true` the C-read MaskPrimers step extracts the UMI into `BARCODE`, it is paired onto the V-read, each mate is consensus-built per UMI (`BuildConsensus`), the two consensus files are re-synced, and assembly proceeds as usual. Worth enabling only when UMIs have real bin depth and quantitative/error-sensitive accuracy matters.
 - **Productive + allele-strip step (ParseDb)**: the clonotype definition is `(V_gene, J_gene, CDR3_aa)` on productive sequences. After MakeDb we filter `productive=T` and write gene-level columns `v_call_gene` / `j_call_gene` for DefineClones to consume.
 - **Clonal grouping** (`--cloning_method`):
