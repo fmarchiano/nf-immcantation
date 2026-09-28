@@ -1,6 +1,7 @@
 include { FASTP                                                           } from '../../modules/nf-core/fastp/main'
 include { GUNZIP                                                          } from '../../modules/local/presto/gunzip/main'
 include { PRESTO_FILTERSEQ                                                } from '../../modules/local/presto/filterseq/main'
+include { PRESTO_FILTERSEQ_PAIRED                                         } from '../../modules/local/presto/filterseq_paired/main'
 include { PRESTO_MASKPRIMERS_FAST as PRESTO_MASKPRIMERS_C                 } from '../../../implementations/presto/maskprimers-fast/nextflow/maskprimers_fast/main'
 include { PRESTO_MASKPRIMERS_FAST as PRESTO_MASKPRIMERS_V                 } from '../../../implementations/presto/maskprimers-fast/nextflow/maskprimers_fast/main'
 include { PRESTO_PAIRSEQ_FAST     as PRESTO_PAIRSEQ                       } from '../../../implementations/presto/pairseq-fast/nextflow/pairseq_fast/main'
@@ -27,8 +28,15 @@ workflow PRESTO_FAST {
 
     def ci = params.cread == 'R2' ? 1 : 0
     def vi = params.cread == 'R2' ? 0 : 1
-    ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
-    ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+
+    if (params.umi) {
+        PRESTO_FILTERSEQ_PAIRED(GUNZIP.out.reads, params.filterseq_q)
+        ch_cread = PRESTO_FILTERSEQ_PAIRED.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+        ch_vread = PRESTO_FILTERSEQ_PAIRED.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+    } else {
+        ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+        ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+    }
 
     PRESTO_MASKPRIMERS_C(ch_cread, ch_cprimers.collect(), 'C')
     PRESTO_MASKPRIMERS_V(ch_vread, ch_vprimers.collect(), 'V')
@@ -62,9 +70,14 @@ workflow PRESTO_FAST {
         ch_assembled = PEAR.out.reads
     }
 
-    PRESTO_FILTERSEQ(ch_assembled, params.filterseq_q)
+    if (params.umi) {
+        ch_for_collapse = ch_assembled
+    } else {
+        PRESTO_FILTERSEQ(ch_assembled, params.filterseq_q)
+        ch_for_collapse = PRESTO_FILTERSEQ.out.reads
+    }
 
-    PRESTO_COLLAPSESEQ(PRESTO_FILTERSEQ.out.reads)
+    PRESTO_COLLAPSESEQ(ch_for_collapse)
 
     PRESTO_SPLITSEQ(PRESTO_COLLAPSESEQ.out.reads)
 

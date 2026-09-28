@@ -1,6 +1,7 @@
 include { FASTP                                              } from '../../modules/nf-core/fastp/main'
 include { GUNZIP                                             } from '../../modules/local/presto/gunzip/main'
 include { PRESTO_FILTERSEQ                                   } from '../../modules/local/presto/filterseq/main'
+include { PRESTO_FILTERSEQ_PAIRED                            } from '../../modules/local/presto/filterseq_paired/main'
 include { PRESTO_MASKPRIMERS_ALIGN as PRESTO_MASKPRIMERS_C   } from '../../modules/local/presto/maskprimers_align/main'
 include { PRESTO_MASKPRIMERS_ALIGN as PRESTO_MASKPRIMERS_V   } from '../../modules/local/presto/maskprimers_align/main'
 include { PRESTO_PAIRSEQ                                     } from '../../modules/local/presto/pairseq/main'
@@ -28,8 +29,16 @@ workflow PRESTO {
 
     def ci = params.cread == 'R2' ? 1 : 0
     def vi = params.cread == 'R2' ? 0 : 1
-    ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
-    ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+
+    if (params.umi) {
+        // UMI path: pre-assembly quality filter on paired reads (matches airrflow)
+        PRESTO_FILTERSEQ_PAIRED(GUNZIP.out.reads, params.filterseq_q)
+        ch_cread = PRESTO_FILTERSEQ_PAIRED.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+        ch_vread = PRESTO_FILTERSEQ_PAIRED.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+    } else {
+        ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+        ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+    }
 
     // 4a. MaskPrimers on C-read with isotype-specific primers.
     //     Header annotated with C_CALL (isotype); in UMI mode (--umi) also
@@ -73,11 +82,16 @@ workflow PRESTO {
     // 8. PEAR — merge paired-end reads by overlap
     PEAR(ch_assemble)
 
-    // 9. Quality-filter assembled reads by mean Phred score
-    PRESTO_FILTERSEQ(PEAR.out.reads, params.filterseq_q)
+    if (params.umi) {
+        ch_for_collapse = PEAR.out.reads
+    } else {
+        // Non-UMI: post-assembly quality filter (matches airrflow sans-UMI)
+        PRESTO_FILTERSEQ(PEAR.out.reads, params.filterseq_q)
+        ch_for_collapse = PRESTO_FILTERSEQ.out.reads
+    }
 
-    // 10. CollapseSeq — exact-sequence PCR-duplicate collapse
-    PRESTO_COLLAPSESEQ(PRESTO_FILTERSEQ.out.reads)
+    // 9. CollapseSeq — exact-sequence PCR-duplicate collapse
+    PRESTO_COLLAPSESEQ(ch_for_collapse)
 
     // 10. SplitSeq — filter by DUPCOUNT >= splitseq_min_count; outputs FASTA
     PRESTO_SPLITSEQ(PRESTO_COLLAPSESEQ.out.reads)
