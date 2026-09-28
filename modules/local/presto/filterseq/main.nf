@@ -1,7 +1,7 @@
 process PRESTO_FILTERSEQ {
     tag "$meta.id"
     label 'process_single'
-    container '035260058162.dkr.ecr.us-east-1.amazonaws.com/nf-immcantation-presto-fast:0.2.0'
+    label 'presto'
 
     input:
     tuple val(meta), path(reads)   // [meta, [R1.fastq, R2.fastq]]
