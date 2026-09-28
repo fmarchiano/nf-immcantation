@@ -4,7 +4,7 @@ process PRESTO_FILTERSEQ {
     label 'presto'
 
     input:
-    tuple val(meta), path(reads)   // [meta, [R1.fastq, R2.fastq]]
+    tuple val(meta), path(reads)
     val filterseq_q
 
     output:
@@ -13,12 +13,9 @@ process PRESTO_FILTERSEQ {
     path "versions.yml",                           emit: versions
 
     script:
-    def r1 = reads[0]
-    def r2 = reads[1]
     """
-    FilterSeq.py quality -s ${r1} -q ${filterseq_q} --outname ${meta.id}_R1 --log ${meta.id}_R1.log --nproc ${task.cpus}
-    FilterSeq.py quality -s ${r2} -q ${filterseq_q} --outname ${meta.id}_R2 --log ${meta.id}_R2.log --nproc ${task.cpus}
-    ParseLog.py -l ${meta.id}_R1.log ${meta.id}_R2.log -f ID QUALITY
+    FilterSeq.py quality -s ${reads} -q ${filterseq_q} --outname ${meta.id} --log ${meta.id}.log --nproc ${task.cpus}
+    ParseLog.py -l ${meta.id}.log -f ID QUALITY
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -28,7 +25,7 @@ process PRESTO_FILTERSEQ {
 
     stub:
     """
-    touch ${meta.id}_R1_quality-pass.fastq ${meta.id}_R2_quality-pass.fastq
+    touch ${meta.id}_quality-pass.fastq
     echo -e "ID\\tQUALITY" > logs.tab
     echo '"${task.process}":' > versions.yml
     echo '    presto: 0.7.2' >> versions.yml

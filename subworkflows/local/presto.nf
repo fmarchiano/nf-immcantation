@@ -26,13 +26,10 @@ workflow PRESTO {
     // 2. Decompress fastp output — pRESTO tools need uncompressed FASTQ
     GUNZIP(FASTP.out.reads)
 
-    // 3. Quality-filter reads by mean Phred score
-    PRESTO_FILTERSEQ(GUNZIP.out.reads, params.filterseq_q)
-
     def ci = params.cread == 'R2' ? 1 : 0
     def vi = params.cread == 'R2' ? 0 : 1
-    ch_cread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
-    ch_vread = PRESTO_FILTERSEQ.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
+    ch_cread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[ci] ] }
+    ch_vread = GUNZIP.out.reads.map { meta, reads -> [ meta, reads[vi] ] }
 
     // 4a. MaskPrimers on C-read with isotype-specific primers.
     //     Header annotated with C_CALL (isotype); in UMI mode (--umi) also
@@ -76,8 +73,11 @@ workflow PRESTO {
     // 8. PEAR — merge paired-end reads by overlap
     PEAR(ch_assemble)
 
-    // 9. CollapseSeq — exact-sequence PCR-duplicate collapse
-    PRESTO_COLLAPSESEQ(PEAR.out.reads)
+    // 9. Quality-filter assembled reads by mean Phred score
+    PRESTO_FILTERSEQ(PEAR.out.reads, params.filterseq_q)
+
+    // 10. CollapseSeq — exact-sequence PCR-duplicate collapse
+    PRESTO_COLLAPSESEQ(PRESTO_FILTERSEQ.out.reads)
 
     // 10. SplitSeq — filter by DUPCOUNT >= splitseq_min_count; outputs FASTA
     PRESTO_SPLITSEQ(PRESTO_COLLAPSESEQ.out.reads)
