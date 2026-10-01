@@ -1,6 +1,6 @@
 process PRESTO_CLUSTERSETS {
     tag "$meta.id"
-    label 'process_long'
+    label 'process_medium'
     label 'presto'
 
     input:

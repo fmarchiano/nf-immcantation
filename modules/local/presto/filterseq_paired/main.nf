@@ -1,6 +1,6 @@
 process PRESTO_FILTERSEQ_PAIRED {
     tag "$meta.id"
-    label 'process_single'
+    label 'process_medium'
     label 'presto'
 
     input:

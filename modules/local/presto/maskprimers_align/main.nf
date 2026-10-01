@@ -18,7 +18,7 @@ process PRESTO_MASKPRIMERS_ALIGN {
     def args  = task.ext.args  ?: ''
     def args2 = task.ext.args2 ?: ''
     """
-    MaskPrimers.py align \\
+    MaskPrimers.py ${params.maskprimers_mode} \\
         -s ${reads} \\
         -p ${primers} \\
         ${args} \\
