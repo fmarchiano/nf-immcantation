@@ -1,6 +1,6 @@
 process PRESTO_BUILDCONSENSUS {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
     label 'presto'
 
     input:

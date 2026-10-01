@@ -1,6 +1,6 @@
 process PRESTO_MASKPRIMERS_ALIGN {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
     label 'presto'
 
     input:

@@ -1,6 +1,6 @@
 process GUNZIP {
     tag "$meta.id"
-    label 'process_single'
+    label 'process_medium'
     label 'presto'
 
     input:

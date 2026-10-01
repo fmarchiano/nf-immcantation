@@ -1,6 +1,6 @@
 process PRESTO_SPLITSEQ {
     tag "$meta.id"
-    label 'process_single'
+    label 'process_low'
     label 'presto'
 
     input:
